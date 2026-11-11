@@ -85,6 +85,10 @@ Reines JavaScript ohne Frameworks oder Bibliotheken. Die Skripte werden als klas
 
 Details zu Datenmodell, Simulation, Darstellung und Speicherformat stehen in [docs/TECHNIK.md](docs/TECHNIK.md).
 
+## Lizenz
+
+SunCity steht unter der [MIT-Lizenz](LICENSE). Du darfst den Code frei verwenden, verändern und weitergeben, solange der Urheberhinweis erhalten bleibt.
+
 ## Hinweis
 
 SunCity ist ein eigenständiges, unabhängiges Projekt. Code, Grafiken und Texte wurden eigens für dieses Spiel erstellt. Es steht in keiner Verbindung zu anderen Spielen, Spielefirmen oder deren Marken.
