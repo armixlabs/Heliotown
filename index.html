@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=no">
+  <title>SunCity</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='26' r='14' fill='%23ffc107'/%3E%3Crect x='8' y='38' width='12' height='22' fill='%233a8ef0'/%3E%3Crect x='24' y='30' width='14' height='30' fill='%23607d8b'/%3E%3Crect x='42' y='42' width='14' height='18' fill='%233fbf5a'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <canvas id="view"></canvas>
+
+  <header id="topbar" class="hidden">
+    <button id="btnMenu" class="tb" title="Hauptmenü">☰</button>
+    <div class="brand"><span class="sun">☀️</span><span id="cityName">SunCity</span><small id="cityClass"></small></div>
+    <div class="stat" id="statDate" title="Datum"></div>
+    <div class="stat" id="statMoney" title="Kassenstand"></div>
+    <div class="stat" id="statPop" title="Einwohner"></div>
+    <div class="stat" id="statPower" title="Strom: verbraucht / Kapazität (Felder)"></div>
+    <div id="rci" title="Nachfrage: Wohnen / Gewerbe / Industrie">
+      <div class="bar" data-z="r"><i></i><b>W</b></div>
+      <div class="bar" data-z="c"><i></i><b>G</b></div>
+      <div class="bar" data-z="i"><i></i><b>I</b></div>
+    </div>
+    <div id="speed">
+      <button data-speed="0" title="Pause [Leertaste]">⏸</button>
+      <button data-speed="1" title="Langsam [1]">▶</button>
+      <button data-speed="2" title="Normal [2]">▶▶</button>
+      <button data-speed="3" title="Schnell [3]">▶▶▶</button>
+    </div>
+    <div class="spacer"></div>
+    <button id="btnRotL" class="tb" title="Ansicht nach links drehen [Z]">⟲</button>
+    <button id="btnRotR" class="tb" title="Ansicht nach rechts drehen [X]">⟳</button>
+    <button id="btnView" class="tb">🗺️ <span class="t">2D</span></button>
+    <button id="btnBudget" class="tb">💰 <span class="t">Haushalt</span></button>
+    <button id="btnStats" class="tb">📈 <span class="t">Statistik</span></button>
+    <button id="btnSave" class="tb">💾 <span class="t">Speichern</span></button>
+    <button id="btnHelp" class="tb" title="Hilfe">❓</button>
+  </header>
+
+  <nav id="toolbar" class="hidden"></nav>
+
+  <aside id="side" class="hidden">
+    <canvas id="minimap" width="200" height="200" title="Klicken zum Hinspringen"></canvas>
+    <div class="sidehead">Ansicht</div>
+    <div id="overlays"></div>
+    <div id="legend"></div>
+  </aside>
+
+  <div id="infoPanel" class="hidden"></div>
+  <div id="ticker" class="hidden" title="Klicken für alle Nachrichten"></div>
+  <div id="toasts"></div>
+  <div id="cursorTip" class="hidden"></div>
+
+  <div id="modal" class="hidden"><div id="dialog"></div></div>
+  <input type="file" id="fileInput" accept=".json,.suncity,application/json" class="hidden">
+
+  <noscript><p style="color:#fff;padding:2em">SunCity benötigt JavaScript.</p></noscript>
+
+  <script src="js/data.js"></script>
+  <script src="js/state.js"></script>
+  <script src="js/sim.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/render3d.js"></script>
+  <script src="js/ui.js"></script>
+  <script>SC.Game.init();</script>
+</body>
+</html>
