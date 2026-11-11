@@ -1,5 +1,5 @@
 'use strict';
-/* SunCity – Grunddaten, Konstanten und Hilfsfunktionen */
+/* Heliotown – Grunddaten, Konstanten und Hilfsfunktionen */
 window.SC = window.SC || {};
 (function (SC) {
   SC.VERSION = 1;
@@ -23,7 +23,7 @@ window.SC = window.SC || {};
     { key: 'coal', name: 'Kohlekraftwerk', size: 3, cost: 3000, upkeep: 30, power: 900, pollution: 255, icon: '🏭', group: 'Energie',
       desc: 'Günstiger Strom für 900 Felder – verschmutzt aber stark die Luft.' },
     { key: 'solar', name: 'Solarpark', size: 3, cost: 6500, upkeep: 40, power: 600, icon: '☀️', group: 'Energie',
-      desc: 'Sauberer Sonnenstrom für 600 Felder – das Herz von SunCity.' },
+      desc: 'Sauberer Sonnenstrom für 600 Felder – das Herz von Heliotown.' },
     { key: 'wind', name: 'Windrad', size: 1, cost: 450, upkeep: 4, power: 50, icon: '🌬️', group: 'Energie',
       desc: 'Kleines, sauberes Windrad für 50 Felder.' },
     { key: 'police', name: 'Polizeiwache', size: 2, cost: 700, upkeep: 25, radius: 14, icon: '🚓', group: 'Dienste',

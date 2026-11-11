@@ -1,5 +1,5 @@
 'use strict';
-/* SunCity – Simulation: Strom, Wachstum, Umwelt, Haushalt, Ereignisse */
+/* Heliotown – Simulation: Strom, Wachstum, Umwelt, Haushalt, Ereignisse */
 (function (SC) {
   const K = SC.KIND, T = SC.TER;
   const Sim = SC.Sim = {};

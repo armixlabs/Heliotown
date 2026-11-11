@@ -1,5 +1,5 @@
 'use strict';
-/* SunCity – Isometrische 3D-Ansicht (drehbar in 90°-Schritten) */
+/* Heliotown – Isometrische 3D-Ansicht (drehbar in 90°-Schritten) */
 (function (SC) {
   const K = SC.KIND, T = SC.TER;
   const R = SC.RenderIso = {};

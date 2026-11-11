@@ -1,10 +1,10 @@
-# ☀️ SunCity
+# ☀️ Heliotown
 
 **Eine Städtebau-Simulation, die komplett im Browser läuft – ohne Installation, ohne Internet, ohne Server.**
 
-*SunCity is a city-building simulation that runs entirely in the browser. Open `index.html` and play – no install, no build step, no network.*
+*Heliotown is a city-building simulation that runs entirely in the browser. Open `index.html` and play – no install, no build step, no network.*
 
-![SunCity in der 3D-Ansicht](docs/screenshot-uebersicht.jpg)
+![Heliotown in der 3D-Ansicht](docs/screenshot-uebersicht.jpg)
 
 ## Spielen
 
@@ -28,7 +28,7 @@ Zum Mitnehmen auf einen anderen PC einfach den ganzen Ordner kopieren. Es gibt k
 
 ## Ansicht
 
-SunCity startet in einer **isometrischen 3D-Ansicht**. Mit **⟲ / ⟳** oder den Tasten **Z / X** drehst du die Stadt in 90°-Schritten. Mit **V** wechselst du zur klassischen 2D-Draufsicht. Ansicht und Drehung werden gespeichert.
+Heliotown startet in einer **isometrischen 3D-Ansicht**. Mit **⟲ / ⟳** oder den Tasten **Z / X** drehst du die Stadt in 90°-Schritten. Mit **V** wechselst du zur klassischen 2D-Draufsicht. Ansicht und Drehung werden gespeichert.
 
 ## So startest du eine Stadt
 
@@ -61,13 +61,13 @@ Tipps: Industrie verschmutzt, also Abstand zu Wohngebieten halten. Wasser, Parks
 
 - Spielstände liegen im **lokalen Speicher des Browsers** (`localStorage`). Das Spiel speichert automatisch jedes Spieljahr, alle 2 Minuten und beim Schließen. Im Hauptmenü geht es mit „Weiterspielen“ weiter.
 - Über **💾 Speichern** legst du beliebig viele eigene Spielstände an (rund 15–20 KB pro Stadt).
-- Der Browser-Speicher gehört zum jeweiligen PC und Browser. Um eine Stadt mitzunehmen: **💾 Speichern → „Aktuelles Spiel exportieren“** erzeugt eine `.suncity.json`-Datei, die du auf dem anderen PC über **„Spielstand-Datei importieren“** lädst.
+- Der Browser-Speicher gehört zum jeweiligen PC und Browser. Um eine Stadt mitzunehmen: **💾 Speichern → „Aktuelles Spiel exportieren“** erzeugt eine `.heliotown.json`-Datei, die du auf dem anderen PC über **„Spielstand-Datei importieren“** lädst.
 - Wer Browserdaten löscht, löscht auch die Spielstände. Wichtige Städte daher als Datei exportieren.
 
 ## Projektaufbau
 
 ```
-SunCity/
+Heliotown/
 ├── index.html        Einstiegspunkt
 ├── css/style.css     Oberfläche
 ├── js/
@@ -85,10 +85,14 @@ Reines JavaScript ohne Frameworks oder Bibliotheken. Die Skripte werden als klas
 
 Details zu Datenmodell, Simulation, Darstellung und Speicherformat stehen in [docs/TECHNIK.md](docs/TECHNIK.md).
 
+## Früherer Name
+
+Bis November 2026 hieß das Spiel **SunCity**. Der Name wurde geändert, weil „SunCity“ bereits als Marke für ein anderes Computerspiel eingetragen ist. Spielstände aus dieser Zeit übernimmt Heliotown beim ersten Start automatisch, und alte `.suncity.json`-Dateien lassen sich weiterhin importieren.
+
 ## Lizenz
 
-SunCity steht unter der [MIT-Lizenz](LICENSE). Du darfst den Code frei verwenden, verändern und weitergeben, solange der Urheberhinweis erhalten bleibt.
+Heliotown steht unter der [MIT-Lizenz](LICENSE). Du darfst den Code frei verwenden, verändern und weitergeben, solange der Urheberhinweis erhalten bleibt.
 
 ## Hinweis
 
-SunCity ist ein eigenständiges, unabhängiges Projekt. Code, Grafiken und Texte wurden eigens für dieses Spiel erstellt. Es steht in keiner Verbindung zu anderen Spielen, Spielefirmen oder deren Marken.
+Heliotown ist ein eigenständiges, unabhängiges Projekt. Code, Grafiken und Texte wurden eigens für dieses Spiel erstellt. Es steht in keiner Verbindung zu anderen Spielen, Spielefirmen oder deren Marken.

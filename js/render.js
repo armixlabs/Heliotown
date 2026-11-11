@@ -1,5 +1,5 @@
 'use strict';
-/* SunCity – Darstellung auf dem Canvas (Draufsicht mit Schrägprojektion) */
+/* Heliotown – Darstellung auf dem Canvas (Draufsicht mit Schrägprojektion) */
 (function (SC) {
   const K = SC.KIND, T = SC.TER;
   const R = SC.Render = {};

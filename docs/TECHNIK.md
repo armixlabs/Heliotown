@@ -1,6 +1,6 @@
-# SunCity – Technische Dokumentation
+# Heliotown – Technische Dokumentation
 
-Dieses Dokument beschreibt den Aufbau des Codes für alle, die SunCity weiterentwickeln wollen. Für Spielanleitung und Bedienung siehe [README](../README.md).
+Dieses Dokument beschreibt den Aufbau des Codes für alle, die Heliotown weiterentwickeln wollen. Für Spielanleitung und Bedienung siehe [README](../README.md).
 
 ## Grundprinzipien
 
@@ -111,7 +111,7 @@ Grundformen sind Quader (`box`) mit Dach, linker und rechter Wand in drei Hellig
 
 ```json
 {
-  "app": "SunCity",
+  "app": "Heliotown",
   "v": 1,
   "name": "Sonnenberg", "W": 96, "H": 96, "seed": 657589908,
   "money": 20000, "tax": 7, "day": 1, "month": 0, "year": 2025,
@@ -123,15 +123,17 @@ Grundformen sind Quader (`box`) mit Dach, linker und rechter Wand in drei Hellig
 
 Jede Karte in `maps` ist **lauflängenkodiert** (Paare aus Anzahl 1–255 und Wert) und dann **Base64**-kodiert. Eine mittlere Stadt braucht so rund 15–20 KB.
 
-**Speicherorte im `localStorage`** (Präfix `suncity.v1.`):
+**Speicherorte im `localStorage`** (Präfix `heliotown.v1.`):
 
 | Schlüssel | Inhalt |
 |---|---|
-| `suncity.v1.index` | Liste der Spielstände (Name, Stadt, Einwohner, Datum, Größe) |
-| `suncity.v1.slot.<id>` | Spielstand als JSON; `auto` ist der Autosave |
-| `suncity.v1.pref.view` / `pref.rot` | gewählte Ansicht und Drehung |
+| `heliotown.v1.index` | Liste der Spielstände (Name, Stadt, Einwohner, Datum, Größe) |
+| `heliotown.v1.slot.<id>` | Spielstand als JSON; `auto` ist der Autosave |
+| `heliotown.v1.pref.view` / `pref.rot` | gewählte Ansicht und Drehung |
 
-Exportierte Dateien (`*.suncity.json`) enthalten genau dasselbe JSON. Beim Laden prüft `SC.deserialize` das Feld `app` und lehnt Spielstände einer neueren Version (`v`) ab.
+Exportierte Dateien (`*.heliotown.json`) enthalten genau dasselbe JSON. Beim Laden prüft `SC.deserialize` das Feld `app` und lehnt Spielstände einer neueren Version (`v`) ab.
+
+**Früherer Name „SunCity“.** Spielstände aus der Zeit vor der Umbenennung tragen `"app": "SunCity"` und werden weiterhin akzeptiert. Beim Laden von `state.js` kopiert `migrateLegacy()` einmalig alle Einträge mit dem alten Präfix `suncity.v1.` auf `heliotown.v1.` und entfernt die alten Einträge erst, wenn alles kopiert ist. Gibt es bereits Einträge mit dem neuen Präfix, passiert nichts.
 
 ## Erweitern
 

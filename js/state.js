@@ -1,5 +1,5 @@
 'use strict';
-/* SunCity – Spielstand, Kartengenerierung, Bauaktionen, Speichern/Laden */
+/* Heliotown – Spielstand, Kartengenerierung, Bauaktionen, Speichern/Laden */
 (function (SC) {
   const K = SC.KIND, T = SC.TER;
 
@@ -7,7 +7,7 @@
   SC.createState = function (opts) {
     const W = opts.W, H = opts.H, N = W * H;
     const s = {
-      v: SC.VERSION, name: opts.name || 'SunCity', W, H, N, seed: (opts.seed >>> 0),
+      v: SC.VERSION, name: opts.name || 'Heliotown', W, H, N, seed: (opts.seed >>> 0),
       money: opts.money != null ? opts.money : 20000, tax: 7, day: 1, month: 0, year: 2025,
       disasters: opts.disasters !== false, autosave: true,
       terrain: new Uint8Array(N), kind: new Uint8Array(N), zone: new Uint8Array(N),
@@ -304,7 +304,7 @@
     'buildings', 'history', 'log', 'flags', 'advisor', 'budget', 'demand', 'scanPos'];
 
   SC.serialize = function (s) {
-    const o = { app: 'SunCity' };
+    const o = { app: 'Heliotown' };
     for (const f of FIELDS) o[f] = s[f];
     o.maps = {};
     for (const m of MAPS) o.maps[m] = toB64(rleEncode(s[m]));
@@ -312,8 +312,9 @@
   };
 
   SC.deserialize = function (o) {
-    if (!o || o.app !== 'SunCity' || !o.maps || !o.W || !o.H) throw new Error('Keine gültige SunCity-Spielstanddatei.');
-    if (o.v > SC.VERSION) throw new Error('Der Spielstand stammt aus einer neueren SunCity-Version.');
+    // 'SunCity' = früherer Name des Spiels; solche Spielstände bleiben ladbar
+    if (!o || (o.app !== 'Heliotown' && o.app !== 'SunCity') || !o.maps || !o.W || !o.H) throw new Error('Keine gültige Heliotown-Spielstanddatei.');
+    if (o.v > SC.VERSION) throw new Error('Der Spielstand stammt aus einer neueren Heliotown-Version.');
     const s = SC.createState({ W: o.W, H: o.H, name: o.name, seed: o.seed, money: o.money });
     for (const f of FIELDS) if (o[f] !== undefined) s[f] = o[f];
     s.v = SC.VERSION;
@@ -324,7 +325,24 @@
   };
 
   // ---------- Lokaler Speicher (localStorage) ----------
-  const PREFIX = 'suncity.v1.';
+  const PREFIX = 'heliotown.v1.';
+  const LEGACY_PREFIX = 'suncity.v1.'; // früherer Name des Spiels
+
+  // Einmalige Übernahme von Spielständen und Einstellungen aus der Zeit als „SunCity“
+  function migrateLegacy() {
+    try {
+      if (localStorage.getItem(PREFIX + 'index') || !localStorage.getItem(LEGACY_PREFIX + 'index')) return;
+      const keys = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const k = localStorage.key(i);
+        if (k && k.startsWith(LEGACY_PREFIX) && k !== LEGACY_PREFIX + 'test') keys.push(k);
+      }
+      for (const k of keys) localStorage.setItem(PREFIX + k.slice(LEGACY_PREFIX.length), localStorage.getItem(k));
+      // Alte Einträge erst entfernen, wenn alles kopiert ist
+      for (const k of keys) localStorage.removeItem(k);
+    } catch (e) { /* Speicher voll oder gesperrt: alte Daten bleiben unangetastet */ }
+  }
+  migrateLegacy();
   const Store = SC.Storage = {
     available() {
       try { localStorage.setItem(PREFIX + 'test', '1'); localStorage.removeItem(PREFIX + 'test'); return true; }

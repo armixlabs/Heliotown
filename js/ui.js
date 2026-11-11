@@ -1,5 +1,5 @@
 'use strict';
-/* SunCity – Benutzeroberfläche, Eingabe, Dialoge, Spielschleife */
+/* Heliotown – Benutzeroberfläche, Eingabe, Dialoge, Spielschleife */
 (function (SC) {
   let R = SC.Render;
   const Sim = SC.Sim, Act = SC.Act, K = SC.KIND, T = SC.TER;
@@ -577,7 +577,7 @@
   function showMainMenu() {
     const saves = SC.Storage.list();
     const auto = saves.find(e => e.id === 'auto');
-    let html = '<div class="menu"><div class="logo"><span class="s">☀️</span> SunCity</div>' +
+    let html = '<div class="menu"><div class="logo"><span class="s">☀️</span> Heliotown</div>' +
       '<p class="tag">Plane, baue und verwalte deine eigene Stadt.</p>';
     if (G.s) html += '<button class="btn primary mbtn" data-a="resume">▶ Zurück zum Spiel</button>';
     else if (auto) html += '<button class="btn primary mbtn" data-a="continue">▶ Weiterspielen<span class="cont">' +
@@ -618,7 +618,7 @@
       '<div class="actions"><button class="btn" id="ngBack">Zurück</button><button class="btn primary" id="ngGo">Stadt gründen</button></div>';
     const d = openDialog('🏗️ Neues Spiel', html, { menu: true });
     const opts = () => ({
-      name: $('ngName').value.trim() || 'SunCity', size: +$('ngSize').value, water: +$('ngWater').value,
+      name: $('ngName').value.trim() || 'Heliotown', size: +$('ngSize').value, water: +$('ngWater').value,
       money: +$('ngDiff').value, disasters: $('ngDis').checked, seed: (+$('ngSeed').value) >>> 0
     });
     const prev = () => {
@@ -661,7 +661,7 @@
     } catch (e) { toast('Laden fehlgeschlagen: ' + e.message, 'bad', 6000); }
   }
   function fileName(s) {
-    return (s.name.replace(/[^\wäöüÄÖÜß-]+/g, '_') || 'SunCity') + '_' + SC.MONTHS[s.month] + s.year + '.suncity.json';
+    return (s.name.replace(/[^\wäöüÄÖÜß-]+/g, '_') || 'Heliotown') + '_' + SC.MONTHS[s.month] + s.year + '.heliotown.json';
   }
   function download(name, text) {
     const blob = new Blob([text], { type: 'application/json' });
@@ -692,7 +692,7 @@
   function showSaveLoad(mode) {
     const list = SC.Storage.list();
     let used = 0;
-    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('suncity.')) used += (localStorage.getItem(k) || '').length; } } catch (e) { /* */ }
+    try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('heliotown.')) used += (localStorage.getItem(k) || '').length; } } catch (e) { /* */ }
     let html = '';
     if (G.s) html += '<div class="saveRow"><input type="text" id="slName" maxlength="40" value="' + esc(G.s.name) + ' – ' + esc(SC.dateStr(G.s)) + '">' +
       '<button class="btn primary" id="slSave">💾 Speichern</button></div>';
@@ -711,7 +711,7 @@
       '<button class="btn" id="slImport">📥 Datei importieren</button>' +
       (G.s ? '<button class="btn" id="slExport">⬇ Aktuelles Spiel exportieren</button>' : '') +
       (!G.s ? '<button class="btn" id="slBack">Zurück</button>' : '') + '</span></div>' +
-      '<p class="note">Exportierte Dateien (.suncity.json) kannst du auf einen anderen PC kopieren und dort importieren.</p>';
+      '<p class="note">Exportierte Dateien (.heliotown.json) kannst du auf einen anderen PC kopieren und dort importieren.</p>';
     const d = openDialog(mode === 'save' ? '💾 Speichern & Laden' : '📂 Spiel laden', html, { menu: !G.s });
     if (G.s) {
       $('slSave').addEventListener('click', () => {
@@ -736,7 +736,7 @@
     d.querySelectorAll('[data-exp]').forEach(b => b.addEventListener('click', () => {
       const raw = SC.Storage.raw(b.dataset.exp);
       const e = list.find(x => x.id === b.dataset.exp);
-      if (raw) download((e.city || 'SunCity').replace(/[^\wäöüÄÖÜß-]+/g, '_') + '_' + e.date.replace(' ', '') + '.suncity.json', raw);
+      if (raw) download((e.city || 'Heliotown').replace(/[^\wäöüÄÖÜß-]+/g, '_') + '_' + e.date.replace(' ', '') + '.heliotown.json', raw);
     }));
     d.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
       const e = list.find(x => x.id === b.dataset.del);
