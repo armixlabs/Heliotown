@@ -5,57 +5,93 @@
   const Sim = SC.Sim, Act = SC.Act, K = SC.KIND, T = SC.TER;
   const $ = id => document.getElementById(id);
   const esc = SC.esc;
+  const t = (key, params) => SC.t(key, params);
 
   const G = SC.Game = {
     s: null, tool: SC.TOOL.query, speed: 1, overlay: null, hover: null, preview: null,
-    drag: null, pan: null, dialogOpen: false, infoTile: null, mouse: { x: 0, y: 0 }
+    drag: null, pan: null, dialogOpen: false, infoTile: null, mouse: { x: 0, y: 0 }, screen: null
   };
 
   const OVERLAYS = [
-    [null, '🗺️ Normal'], ['power', '⚡ Strom'], ['roads', '🛣️ Anbindung'], ['pollution', '🏭 Verschmutzung'],
-    ['crime', '🚨 Kriminalität'], ['landValue', '💎 Bodenwert'], ['traffic', '🚗 Verkehr'], ['police', '🚓 Polizei'],
-    ['fire', '🚒 Feuerwehr'], ['school', '🏫 Bildung'], ['hospital', '🏥 Gesundheit']
+    [null, '🗺️', 'ov.none'], ['power', '⚡', 'ov.power'], ['roads', '🛣️', 'ov.roads'], ['pollution', '🏭', 'ov.pollution'],
+    ['crime', '🚨', 'ov.crime'], ['landValue', '💎', 'ov.landValue'], ['traffic', '🚗', 'ov.traffic'], ['police', '🚓', 'ov.police'],
+    ['fire', '🚒', 'ov.fire'], ['school', '🏫', 'ov.school'], ['hospital', '🏥', 'ov.hospital']
   ];
-  const LEGENDS = {
-    power: '<span style="color:#3ce664">■</span> versorgt &nbsp; <span style="color:#f02828">■</span> ohne Strom',
-    roads: '<span style="color:#3ce664">■</span> erschlossen &nbsp; <span style="color:#f02828">■</span> keine Straße in 3 Feldern',
-    pollution: 'niedrig <div class="grad" style="background:linear-gradient(90deg,#28dc28,#ffdc28,#ff2828)"></div> hoch',
-    crime: 'niedrig <div class="grad" style="background:linear-gradient(90deg,#28dc28,#ffdc28,#ff2828)"></div> hoch',
-    traffic: 'wenig <div class="grad" style="background:linear-gradient(90deg,#28dc28,#ffdc28,#ff2828)"></div> Stau',
-    landValue: 'niedrig <div class="grad" style="background:linear-gradient(90deg,#dc50c8,#78a0a0,#14e650)"></div> hoch',
-    police: 'Abdeckung durch Polizeiwachen', fire: 'Abdeckung durch Feuerwachen',
-    school: 'Einzugsgebiet von Schulen', hospital: 'Einzugsgebiet von Krankenhäusern'
-  };
+  const GRAD_HEAT = '<div class="grad" style="background:linear-gradient(90deg,#28dc28,#ffdc28,#ff2828)"></div>';
+  function legend(key) {
+    const green = '<span style="color:#3ce664">■</span> ', red = ' &nbsp; <span style="color:#f02828">■</span> ';
+    switch (key) {
+      case 'power': return green + t('lg.powered') + red + t('lg.unpowered');
+      case 'roads': return green + t('lg.connected') + red + t('lg.noRoad');
+      case 'pollution': case 'crime': return t('lg.low') + ' ' + GRAD_HEAT + ' ' + t('lg.high');
+      case 'traffic': return t('lg.light') + ' ' + GRAD_HEAT + ' ' + t('lg.jam');
+      case 'landValue': return t('lg.low') + ' <div class="grad" style="background:linear-gradient(90deg,#dc50c8,#78a0a0,#14e650)"></div> ' + t('lg.high');
+      case 'police': case 'fire': case 'school': case 'hospital': return t('lg.' + key);
+    }
+    return '';
+  }
 
   // ======================= Initialisierung =======================
   G.init = function () {
+    SC.setLang(SC.Storage.getPref('lang', null) || SC.detectLang());
     SC.Render.init($('view'));
     SC.RenderIso.init($('view'));
     R = SC.Storage.getPref('view', '3d') === '2d' ? SC.Render : SC.RenderIso;
     SC.RenderIso.rot = SC.Storage.getPref('rot', 0) | 0;
+    applyStaticTexts();
     buildToolbar();
     buildOverlays();
     bindTopbar();
     bindCanvas();
     bindKeys();
+    $('minimap').addEventListener('pointerdown', minimapJump);
+    $('minimap').addEventListener('pointermove', e => { if (e.buttons & 1) minimapJump(e); });
     SC.on('notify', onNotify);
     SC.on('newYear', () => autosave(true));
-    SC.on('milestone', n => floatBanner('🎉 ' + n + '!'));
+    SC.on('milestone', idx => toast(t('toast.milestone', { cls: '@class.' + idx }), 'good', 5000));
     window.addEventListener('beforeunload', () => autosave(true));
     setInterval(() => autosave(true), 120000);
     $('fileInput').addEventListener('change', onImportFile);
-    if (!SC.Storage.available())
-      setTimeout(() => toast('Lokaler Speicher ist in diesem Browser nicht verfügbar – Spielstände bitte als Datei exportieren.', 'warn', 8000), 500);
+    if (!SC.Storage.available()) setTimeout(() => toast(t('toast.noStorage'), 'warn', 8000), 500);
     showMainMenu();
     requestAnimationFrame(frame);
   };
 
+  // ======================= Sprache =======================
+  function applyStaticTexts() {
+    document.querySelectorAll('[data-i18n]').forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll('[data-i18n-title]').forEach(el => { el.title = t(el.dataset.i18nTitle); });
+  }
+  G.setLanguage = function (lang) {
+    if (lang === SC.lang) return;
+    SC.setLang(lang);
+    SC.Storage.setPref('lang', SC.lang);
+    applyStaticTexts();
+    buildToolbar();
+    buildOverlays();
+    updateViewButtons();
+    if (G.s) {
+      updateTopbar();
+      const lastMsg = G.s.log[G.s.log.length - 1];
+      if (lastMsg) setTicker(lastMsg);
+      if (G.infoTile) renderInfo();
+    }
+    updatePreview();
+  };
+  function langPicker(id) {
+    return '<div class="langPick" id="' + id + '">' + SC.LANG_LIST.map(l =>
+      '<button class="btn small' + (l === SC.lang ? ' primary' : '') + '" data-lang="' + l + '">' + esc(SC.LANGS[l]['lang.name']) + '</button>').join('') + '</div>';
+  }
+  function bindLangPicker(id, after) {
+    $(id).querySelectorAll('[data-lang]').forEach(b => b.addEventListener('click', () => { G.setLanguage(b.dataset.lang); after(); }));
+  }
+
   // ======================= Spielschleife =======================
   let last = 0, acc = 0, uiTimer = 0, mmTimer = 0;
-  function frame(t) {
+  function frame(time) {
     requestAnimationFrame(frame);
-    const dt = Math.min(250, last ? t - last : 16);
-    last = t;
+    const dt = Math.min(250, last ? time - last : 16);
+    last = time;
     const s = G.s;
     if (!s) return;
     if (G.speed > 0 && !G.dialogOpen) {
@@ -68,7 +104,7 @@
     }
     if (s.changed) Sim.afterEdit(s);
     R.clampView(s);
-    R.draw(s, t, G);
+    R.draw(s, time, G);
     uiTimer += dt;
     if (uiTimer > 200) { uiTimer = 0; updateTopbar(); if (G.infoTile) renderInfo(); }
     mmTimer += dt;
@@ -122,8 +158,8 @@
     mmTimer = 1000;
   };
   function updateViewButtons() {
-    $('btnView').innerHTML = R.is3D ? '🗺️ <span class="t">2D-Ansicht</span>' : '🧊 <span class="t">3D-Ansicht</span>';
-    $('btnView').title = R.is3D ? 'Zur Draufsicht wechseln [V]' : 'Zur 3D-Ansicht wechseln [V]';
+    $('btnView').innerHTML = R.is3D ? '🗺️ <span class="t">' + esc(t('view.2d')) + '</span>' : '🧊 <span class="t">' + esc(t('view.3d')) + '</span>';
+    $('btnView').title = R.is3D ? t('view.to2d') : t('view.to3d');
     $('btnRotL').classList.toggle('hidden', !R.is3D);
     $('btnRotR').classList.toggle('hidden', !R.is3D);
   }
@@ -131,12 +167,13 @@
   // ======================= Werkzeuge =======================
   function buildToolbar() {
     const tb = $('toolbar');
+    tb.innerHTML = '';
     let group = null;
     for (const tool of SC.TOOLS) {
       if (tool.group !== group) {
         group = tool.group;
         const h = document.createElement('div');
-        h.className = 'tgroup'; h.textContent = group;
+        h.className = 'tgroup'; h.textContent = tool.groupName;
         tb.appendChild(h);
       }
       const b = document.createElement('button');
@@ -145,6 +182,7 @@
         '<span class="cost">' + (tool.cost ? SC.fmtMoney(tool.cost) : '&nbsp;') + '</span>';
       b.title = tool.name + (tool.key ? ' [' + tool.key.toUpperCase() + ']' : '') + '\n' + (tool.desc || '');
       b.addEventListener('click', () => G.setTool(tool.id));
+      b.classList.toggle('on', G.tool && G.tool.id === tool.id);
       tb.appendChild(b);
     }
   }
@@ -159,20 +197,21 @@
 
   function buildOverlays() {
     const box = $('overlays');
-    for (const [key, name] of OVERLAYS) {
+    box.innerHTML = '';
+    for (const [key, icon, label] of OVERLAYS) {
       const b = document.createElement('button');
+      const name = icon + ' ' + t(label);
       b.dataset.ov = key || '';
       b.textContent = name; b.title = name;
       b.addEventListener('click', () => G.setOverlay(key === G.overlay ? null : key));
       box.appendChild(b);
     }
-    $('minimap').addEventListener('pointerdown', minimapJump);
-    $('minimap').addEventListener('pointermove', e => { if (e.buttons & 1) minimapJump(e); });
+    G.setOverlay(G.overlay);
   }
   G.setOverlay = function (key) {
     G.overlay = key;
     document.querySelectorAll('#overlays button').forEach(b => b.classList.toggle('on', (b.dataset.ov || null) === key));
-    $('legend').innerHTML = key ? LEGENDS[key] || '' : '';
+    $('legend').innerHTML = key ? legend(key) : '';
     mmTimer = 1000;
   };
   function minimapJump(e) {
@@ -230,7 +269,7 @@
       if (!bt.minPop) return;
       const locked = st.pop < bt.minPop && !s.flags['unlock_' + bt.key];
       b.classList.toggle('locked', locked);
-      b.querySelector('.cost').textContent = locked ? '🔒 ab ' + SC.fmtNum(bt.minPop) + ' EW' : SC.fmtMoney(bt.cost);
+      b.querySelector('.cost').textContent = locked ? t('tool.lockedShort', { n: bt.minPop }) : SC.fmtMoney(bt.cost);
     });
   }
 
@@ -348,9 +387,9 @@
       const pv = Act.preview(s, tool, dragTiles());
       G.preview = { tiles: pv.tiles };
       total = pv.total;
-      invalid = pv.tiles.every(t => t.c < 0);
+      invalid = pv.tiles.every(p => p.c < 0);
       const d = G.drag;
-      const dims = tool.drag === 'rect' ? (Math.abs(d.ex - d.sx) + 1) + '×' + (Math.abs(d.ey - d.sy) + 1) : pv.tiles.length + ' Felder';
+      const dims = tool.drag === 'rect' ? (Math.abs(d.ex - d.sx) + 1) + '×' + (Math.abs(d.ey - d.sy) + 1) : t('pv.tiles', { n: pv.tiles.length });
       text = tool.name + ' · ' + dims + ' · ' + SC.fmtMoney(total);
     } else if (tool.building) {
       const bt = SC.BTYPES[tool.building];
@@ -358,14 +397,14 @@
       const c = Act.check(s, tool, o.x, o.y);
       G.preview = { tiles: [{ x: o.x, y: o.y, c }], size: bt.size, radius: bt.radius, cx: o.x + bt.size / 2, cy: o.y + bt.size / 2 };
       total = c; invalid = c < 0;
-      text = bt.name + ' · ' + (c === -2 ? '🔒 ab ' + SC.fmtNum(bt.minPop) + ' Einwohnern' : c < 0 ? 'hier nicht möglich' : SC.fmtMoney(c));
+      text = bt.name + ' · ' + (c === -2 ? t('pv.lockedFrom', { n: bt.minPop }) : c < 0 ? t('pv.notHere') : SC.fmtMoney(c));
     } else {
       const c = Act.check(s, tool, G.hover.x, G.hover.y);
       G.preview = { tiles: [{ x: G.hover.x, y: G.hover.y, c }] };
       total = c; invalid = c < 0;
-      text = tool.name + ' · ' + (c < 0 ? 'hier nicht möglich' : SC.fmtMoney(c));
+      text = tool.name + ' · ' + (c < 0 ? t('pv.notHere') : SC.fmtMoney(c));
     }
-    if (total > s.money) { invalid = true; text += ' · zu teuer!'; }
+    if (total > s.money) { invalid = true; text += ' · ' + t('pv.tooExpensive'); }
     tip.textContent = text;
     tip.classList.toggle('bad', invalid);
     tip.classList.remove('hidden');
@@ -375,11 +414,10 @@
 
   function applyDrag() {
     const s = G.s, tool = G.tool;
-    let spent = 0, noMoney = false, locked = false, any = false;
+    let spent = 0, noMoney = false, locked = false;
     for (const [x, y] of dragTiles()) {
       const r = Act.apply(s, tool, x, y);
       if (r > 0) spent += r;
-      if (r >= 0) any = true;
       else if (r === -3) noMoney = true;
       else if (r === -2) locked = true;
     }
@@ -389,17 +427,17 @@
     const s = G.s, bt = SC.BTYPES[G.tool.building];
     const o = buildingOrigin(tile, bt);
     const r = Act.apply(s, G.tool, o.x, o.y);
-    if (r === -1) toast('Hier ist kein Platz für ' + bt.name + '.', 'warn');
+    if (r === -1) toast(t('toast.noSpace', { b: bt.name }), 'warn');
     finishAction(r > 0 ? r : 0, r === -3, r === -2, r > 0 ? bt : null);
   }
   function finishAction(spent, noMoney, locked, bt) {
     const s = G.s;
     if (spent > 0) floatText('−' + SC.fmtMoney(spent), true);
-    if (noMoney) toast('Nicht genug Geld in der Stadtkasse!', 'bad');
-    if (locked) toast('Noch nicht freigeschaltet.', 'warn');
+    if (noMoney) toast(t('toast.noMoney'), 'bad');
+    if (locked) toast(t('toast.locked'), 'warn');
     if (bt && bt.power && !s.flags.firstPlant) {
       s.flags.firstPlant = true;
-      toast('Tipp: Verbinde das Kraftwerk mit Straße oder Stromleitung mit deiner Stadt – Straßen und Zonen leiten Strom weiter.', 'info', 7000);
+      toast(t('toast.firstPlant'), 'info', 7000);
     }
     Sim.afterEdit(s);
     updateTopbar();
@@ -441,7 +479,7 @@
       if (e.key === ',' || k === 'z') { G.rotateView(-1); return; }
       if (e.key === '.' || k === 'x') { G.rotateView(1); return; }
       if (k === 'p') { G.setSpeed(G.speed ? 0 : (G.lastSpeed || 1)); return; }
-      const tool = SC.TOOLS.find(t => t.key === k);
+      const tool = SC.TOOLS.find(tl => tl.key === k);
       if (tool) G.setTool(tool.id);
     });
   }
@@ -460,59 +498,56 @@
   }
   function row(a, b) { return '<div class="row"><span>' + a + '</span><span>' + b + '</span></div>'; }
   function renderInfo() {
-    const s = G.s, t = G.infoTile, i = t.y * s.W + t.x, k = s.kind[i], ter = s.terrain[i];
+    const s = G.s, tile = G.infoTile, i = tile.y * s.W + tile.x, k = s.kind[i], ter = s.terrain[i];
     let title = '', html = '';
-    const yes = '✅', no = '❌';
+    const yes = '✅ ', no = '❌ ';
     const env = () =>
-      row('Bodenwert', s.landValue[i] + meter(s.landValue[i] / 100, '#3fbf5a')) +
-      row('Verschmutzung', Math.round(s.pollution[i] / 2.55) + '%' + meter(s.pollution[i] / 255, '#ff7043')) +
-      row('Kriminalität', s.crime[i] + '%' + meter(s.crime[i] / 100, '#e53935')) +
-      row('Polizeischutz', Math.round(s.cov.police[i] * 100) + '%' + meter(s.cov.police[i], '#3a8ef0')) +
-      row('Brandschutz', Math.round(s.cov.fire[i] * 100) + '%' + meter(s.cov.fire[i], '#3a8ef0'));
+      row(t('i.landValue'), s.landValue[i] + meter(s.landValue[i] / 100, '#3fbf5a')) +
+      row(t('i.pollution'), Math.round(s.pollution[i] / 2.55) + '%' + meter(s.pollution[i] / 255, '#ff7043')) +
+      row(t('i.crime'), s.crime[i] + '%' + meter(s.crime[i] / 100, '#e53935')) +
+      row(t('i.policeCov'), Math.round(s.cov.police[i] * 100) + '%' + meter(s.cov.police[i], '#3a8ef0')) +
+      row(t('i.fireCov'), Math.round(s.cov.fire[i] * 100) + '%' + meter(s.cov.fire[i], '#3a8ef0'));
     if (k === K.ZONE) {
       const z = s.zone[i], l = s.lvl[i];
-      const names = [['Unbebaut', 'Einfamilienhäuser', 'Mehrfamilienhaus', 'Wohnturm'],
-        ['Unbebaut', 'Laden', 'Bürogebäude', 'Geschäftsturm'],
-        ['Unbebaut', 'Werkstatt', 'Fabrik', 'Industriekomplex']][z - 1];
-      title = SC.ZONE_NAMES[z] + ' – ' + names[l];
-      html += row(z === 1 ? 'Einwohner' : 'Arbeitsplätze', SC.fmtNum(SC.CAPACITY[z][l]));
-      html += row('Ausbaustufe', l + ' / 3');
-      html += row('Strom', s.powered[i] ? yes + ' versorgt' : no + ' kein Strom');
-      html += row('Straßenanbindung', s.roadDist[i] <= 3 ? yes + ' ja' : no + ' keine Straße in 3 Feldern');
+      title = SC.ZONE_NAMES[z] + ' – ' + t('lvl.' + z)[l];
+      html += row(z === 1 ? t('i.residents') : t('i.jobs'), SC.fmtNum(SC.CAPACITY[z][l]));
+      html += row(t('i.level'), l + ' / 3');
+      html += row(t('i.power'), s.powered[i] ? yes + t('i.powered') : no + t('i.noPower'));
+      html += row(t('i.roadAccess'), s.roadDist[i] <= 3 ? yes + t('i.yes') : no + t('i.noRoad'));
       html += env();
-      if (z === 1) html += row('Schule', Math.round(s.cov.school[i] * 100) + '%') + row('Krankenhaus', Math.round(s.cov.hospital[i] * 100) + '%');
+      if (z === 1) html += row(t('i.school'), Math.round(s.cov.school[i] * 100) + '%') + row(t('i.hospital'), Math.round(s.cov.hospital[i] * 100) + '%');
     } else if (k === K.BUILDING) {
       const b = SC.buildingAt(s, i), bt = SC.BTYPES[b.t];
-      title = bt.icon + ' ' + bt.name;
-      html += row('Unterhalt', SC.fmtMoney(bt.upkeep) + ' / Monat');
+      title = bt.icon + ' ' + esc(bt.name);
+      html += row(t('i.upkeep'), t('i.perMonth', { v: SC.fmtMoney(bt.upkeep) }));
       if (bt.power) {
-        html += row('Leistung', SC.fmtNum(bt.power) + ' Felder');
-        html += row('Netz gesamt', SC.fmtNum(s.power.used) + ' / ' + SC.fmtNum(s.power.capacity));
-        if (bt.pollution) html += row('Umwelt', '⚠️ stark verschmutzend');
+        html += row(t('i.output'), t('i.tiles', { n: bt.power }));
+        html += row(t('i.grid'), SC.fmtNum(s.power.used) + ' / ' + SC.fmtNum(s.power.capacity));
+        if (bt.pollution) html += row(t('i.env'), t('i.heavyPol'));
       } else if (bt.key !== 'park') {
-        html += row('Strom', s.powered[i] ? yes + ' versorgt' : no + ' kein Strom');
+        html += row(t('i.power'), s.powered[i] ? yes + t('i.powered') : no + t('i.noPower'));
       }
-      if (bt.radius) html += row('Reichweite', bt.radius + ' Felder');
+      if (bt.radius) html += row(t('i.range'), t('i.tiles', { n: bt.radius }));
       html += '<div class="note" style="margin-top:6px">' + esc(bt.desc) + '</div>';
     } else if (SC.isRoad(k)) {
-      title = ter === T.WATER ? '🌉 Brücke' : '🛣️ Straße';
-      if (k === K.ROADWIRE) title += ' mit Stromleitung';
-      html += row('Verkehr', Math.round(s.traffic[i] / 2.55) + '%' + meter(s.traffic[i] / 160, '#ffb703'));
-      html += row('Unterhalt', ter === T.WATER ? '0,60 € / Monat' : '0,08 € / Monat');
+      title = ter === T.WATER ? t('i.bridge') : t('i.road');
+      if (k === K.ROADWIRE) title += t('i.withWire');
+      html += row(t('i.traffic'), Math.round(s.traffic[i] / 2.55) + '%' + meter(s.traffic[i] / 160, '#ffb703'));
+      html += row(t('i.upkeep'), t('i.perMonth', { v: SC.fmtMoney(ter === T.WATER ? 0.6 : 0.08, 2) }));
     } else if (k === K.WIRE) {
-      title = '⚡ Stromleitung';
-      html += row('Strom', s.powered[i] ? yes + ' unter Spannung' : no + ' nicht verbunden');
+      title = t('i.wire');
+      html += row(t('i.power'), s.powered[i] ? yes + t('i.live') : no + t('i.notConnected'));
     } else if (k === K.RUBBLE) {
-      title = '🧱 Trümmer';
-      html += '<div class="note">Mit dem Abriss-Werkzeug räumen oder direkt überbauen.</div>';
+      title = t('i.rubble');
+      html += '<div class="note">' + t('i.rubbleHint') + '</div>';
     } else {
-      title = ter === T.WATER ? '🌊 Wasser' : ter === T.TREES ? '🌲 Wald' : '🌱 Wiese';
+      title = ter === T.WATER ? t('i.water') : ter === T.TREES ? t('i.forest') : t('i.meadow');
       if (ter !== T.WATER) html += env();
     }
-    if (s.fire[i]) html = '<div class="row" style="color:#ff8b84"><span>🔥 Hier brennt es!</span><span></span></div>' + html;
-    html += row('Position', t.x + ', ' + t.y);
+    if (s.fire[i]) html = '<div class="row" style="color:#ff8b84"><span>' + t('i.burning') + '</span><span></span></div>' + html;
+    html += row(t('i.position'), tile.x + ', ' + tile.y);
     const p = $('infoPanel');
-    p.innerHTML = '<button class="close" title="Schließen">✕</button><h3>' + title + '</h3>' + html;
+    p.innerHTML = '<button class="close" title="' + esc(t('btn.close')) + '">✕</button><h3>' + title + '</h3>' + html;
     p.querySelector('.close').addEventListener('click', closeInfo);
     p.classList.remove('hidden');
   }
@@ -520,12 +555,12 @@
   // ======================= Meldungen =======================
   function onNotify(entry) {
     setTicker(entry);
-    if (entry.type === 'bad' || entry.type === 'good') toast(entry.msg, entry.type);
+    if (entry.type === 'bad' || entry.type === 'good') toast(SC.msgText(entry), entry.type);
   }
   function setTicker(entry) {
     const tk = $('ticker');
     tk.className = entry.type || '';
-    tk.innerHTML = '<span class="d">' + esc(entry.d) + '</span>' + esc(entry.msg);
+    tk.innerHTML = '<span class="d">' + esc(SC.msgDate(entry)) + '</span>' + esc(SC.msgText(entry));
   }
   function toast(msg, type, ms) {
     const el = document.createElement('div');
@@ -545,14 +580,13 @@
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 1200);
   }
-  function floatBanner(text) { toast(text, 'good', 5000); }
 
   // ======================= Dialoge =======================
   function openDialog(title, body, opts) {
     opts = opts || {};
     if (opts.menu && !G.s) opts.noClose = true;
     const d = $('dialog');
-    d.innerHTML = (title ? '<div class="dhead"><h2>' + title + '</h2>' + (opts.noClose ? '' : '<button class="x" title="Schließen">✕</button>') + '</div>' : '') +
+    d.innerHTML = (title ? '<div class="dhead"><h2>' + title + '</h2>' + (opts.noClose ? '' : '<button class="x" title="' + esc(t('btn.close')) + '">✕</button>') + '</div>' : '') +
       '<div class="dbody">' + body + '</div>';
     d.style.width = opts.width || '';
     $('modal').classList.remove('hidden');
@@ -578,17 +612,17 @@
     const saves = SC.Storage.list();
     const auto = saves.find(e => e.id === 'auto');
     let html = '<div class="menu"><div class="logo"><span class="s">☀️</span> Heliotown</div>' +
-      '<p class="tag">Plane, baue und verwalte deine eigene Stadt.</p>';
-    if (G.s) html += '<button class="btn primary mbtn" data-a="resume">▶ Zurück zum Spiel</button>';
-    else if (auto) html += '<button class="btn primary mbtn" data-a="continue">▶ Weiterspielen<span class="cont">' +
-      esc(auto.city) + ' · ' + esc(auto.date) + ' · ' + SC.fmtNum(auto.pop) + ' Einwohner</span></button>';
-    html += '<button class="btn mbtn' + (!G.s && !auto ? ' primary' : '') + '" data-a="new">🏗️ Neues Spiel</button>' +
-      '<button class="btn mbtn" data-a="load">📂 Spiel laden / speichern</button>' +
-      '<button class="btn mbtn" data-a="import">📥 Spielstand-Datei importieren</button>' +
-      (G.s ? '<button class="btn mbtn" data-a="settings">⚙️ Einstellungen</button>' : '') +
-      '<button class="btn mbtn" data-a="help">❓ Anleitung</button>' +
-      '<p class="note" style="margin-top:18px">Läuft komplett offline. Spielstände werden lokal in diesem Browser gespeichert –<br>' +
-      'zum Umziehen auf einen anderen PC als Datei exportieren.</p></div>';
+      '<p class="tag">' + t('app.tagline') + '</p>';
+    if (G.s) html += '<button class="btn primary mbtn" data-a="resume">▶ ' + t('menu.resume') + '</button>';
+    else if (auto) html += '<button class="btn primary mbtn" data-a="continue">▶ ' + t('menu.continue') + '<span class="cont">' +
+      esc(auto.city) + ' · ' + esc(auto.date) + ' · ' + t('menu.residents', { n: auto.pop }) + '</span></button>';
+    html += '<button class="btn mbtn' + (!G.s && !auto ? ' primary' : '') + '" data-a="new">🏗️ ' + t('menu.new') + '</button>' +
+      '<button class="btn mbtn" data-a="load">📂 ' + t('menu.load') + '</button>' +
+      '<button class="btn mbtn" data-a="import">📥 ' + t('menu.import') + '</button>' +
+      (G.s ? '<button class="btn mbtn" data-a="settings">⚙️ ' + t('menu.settings') + '</button>' : '') +
+      '<button class="btn mbtn" data-a="help">❓ ' + t('menu.help') + '</button>' +
+      '<div class="langRow"><span class="note">🌐 ' + t('menu.language') + '</span>' + langPicker('menuLang') + '</div>' +
+      '<p class="note" style="margin-top:14px">' + t('menu.offline') + '</p></div>';
     const d = openDialog('', html, { menu: true, width: '460px' });
     d.querySelectorAll('[data-a]').forEach(b => b.addEventListener('click', () => {
       const a = b.dataset.a;
@@ -600,25 +634,27 @@
       else if (a === 'settings') showSettings();
       else if (a === 'help') showHelp();
     }));
+    bindLangPicker('menuLang', showMainMenu);
   }
 
   // ---------- Neues Spiel ----------
   function showNewGame() {
-    const names = ['Sonnenstadt', 'Neu-Sonnfeld', 'Lichtenau', 'Sonnenberg', 'Helioshafen', 'Goldtal', 'Sommerau'];
+    const names = t('ng.names');
     const seed = (Math.random() * 1e9) | 0;
+    const money = n => SC.fmtMoney(n);
     const html =
       '<div class="newgame"><div class="form">' +
-      '<label>Stadtname</label><input type="text" id="ngName" maxlength="40" value="' + names[(Math.random() * names.length) | 0] + '">' +
-      '<label>Kartengröße</label><select id="ngSize"><option value="64">Klein (64×64)</option><option value="96" selected>Mittel (96×96)</option><option value="128">Groß (128×128)</option></select>' +
-      '<label>Wasser</label><select id="ngWater"><option value="0.3">Wenig</option><option value="0.37" selected>Normal</option><option value="0.44">Viel</option></select>' +
-      '<label>Schwierigkeit</label><select id="ngDiff"><option value="50000">Leicht (50.000 €)</option><option value="20000" selected>Normal (20.000 €)</option><option value="10000">Schwer (10.000 €)</option></select>' +
-      '<label>Katastrophen</label><label><input type="checkbox" id="ngDis" checked> Brände können ausbrechen</label>' +
-      '<label>Karten-Nr.</label><div style="display:flex;gap:6px"><input type="number" id="ngSeed" value="' + seed + '"><button class="btn small" id="ngRnd" title="Neue Karte">🎲</button></div>' +
-      '</div><div><canvas class="preview" id="ngPrev" width="160" height="160"></canvas><div class="note" style="text-align:center;margin-top:4px">Vorschau</div></div></div>' +
-      '<div class="actions"><button class="btn" id="ngBack">Zurück</button><button class="btn primary" id="ngGo">Stadt gründen</button></div>';
-    const d = openDialog('🏗️ Neues Spiel', html, { menu: true });
+      '<label>' + t('ng.name') + '</label><input type="text" id="ngName" maxlength="40" value="' + esc(names[(Math.random() * names.length) | 0]) + '">' +
+      '<label>' + t('ng.size') + '</label><select id="ngSize"><option value="64">' + t('ng.small') + ' (64×64)</option><option value="96" selected>' + t('ng.medium') + ' (96×96)</option><option value="128">' + t('ng.large') + ' (128×128)</option></select>' +
+      '<label>' + t('ng.water') + '</label><select id="ngWater"><option value="0.3">' + t('ng.little') + '</option><option value="0.37" selected>' + t('ng.normal') + '</option><option value="0.44">' + t('ng.much') + '</option></select>' +
+      '<label>' + t('ng.diff') + '</label><select id="ngDiff"><option value="50000">' + t('ng.easy') + ' (' + money(50000) + ')</option><option value="20000" selected>' + t('ng.normal') + ' (' + money(20000) + ')</option><option value="10000">' + t('ng.hard') + ' (' + money(10000) + ')</option></select>' +
+      '<label>' + t('ng.disasters') + '</label><label><input type="checkbox" id="ngDis" checked> ' + t('ng.fires') + '</label>' +
+      '<label>' + t('ng.seed') + '</label><div style="display:flex;gap:6px"><input type="number" id="ngSeed" value="' + seed + '"><button class="btn small" id="ngRnd" title="' + esc(t('ng.newMap')) + '">🎲</button></div>' +
+      '</div><div><canvas class="preview" id="ngPrev" width="160" height="160"></canvas><div class="note" style="text-align:center;margin-top:4px">' + t('ng.preview') + '</div></div></div>' +
+      '<div class="actions"><button class="btn" id="ngBack">' + t('btn.back') + '</button><button class="btn primary" id="ngGo">' + t('ng.go') + '</button></div>';
+    const d = openDialog('🏗️ ' + t('ng.title'), html, { menu: true });
     const opts = () => ({
-      name: $('ngName').value.trim() || 'Heliotown', size: +$('ngSize').value, water: +$('ngWater').value,
+      name: $('ngName').value.trim() || t('app.defaultCity'), size: +$('ngSize').value, water: +$('ngWater').value,
       money: +$('ngDiff').value, disasters: $('ngDis').checked, seed: (+$('ngSeed').value) >>> 0
     });
     const prev = () => {
@@ -632,10 +668,10 @@
     $('ngRnd').addEventListener('click', () => { $('ngSeed').value = (Math.random() * 1e9) | 0; prev(); });
     $('ngBack').addEventListener('click', showMainMenu);
     $('ngGo').addEventListener('click', () => {
-      if (G.s && !confirm('Das aktuelle Spiel wird beendet. Nicht gespeicherter Fortschritt geht verloren (außer im Autosave). Fortfahren?')) return;
+      if (G.s && !confirm(t('ng.confirm'))) return;
       if (G.s) autosave(true);
       G.startGame(SC.newGame(opts()));
-      toast('Tipp: Baue zuerst ein Kraftwerk, dann Straßen und Zonen. Öffne ❓ für die Anleitung.', 'info', 7000);
+      toast(t('ng.tip'), 'info', 7000);
     });
     d.querySelector('#ngName').focus();
   }
@@ -643,25 +679,26 @@
   // ---------- Speichern / Laden ----------
   function quickSave() {
     if (!G.s) return;
-    try { SC.Storage.save('auto', G.s, 'Automatisch gespeichert'); toast('Spiel gespeichert (Autosave).', 'good', 2000); }
-    catch (e) { toast('Speichern fehlgeschlagen: ' + e.message, 'bad'); }
+    try { SC.Storage.save('auto', G.s, 'auto'); toast(t('toast.quickSaved'), 'good', 2000); }
+    catch (e) { toast(t('toast.saveFail', { e: e.message }), 'bad'); }
   }
   function autosave(silent) {
     if (!G.s || !G.s.autosave) return;
     try {
-      SC.Storage.save('auto', G.s, 'Automatisch gespeichert');
-      if (!silent) toast('Automatisch gespeichert.', 'info', 1800);
-    } catch (e) { if (!silent) toast('Autosave fehlgeschlagen – Speicher voll? Exportiere deine Stadt als Datei.', 'bad'); }
+      SC.Storage.save('auto', G.s, 'auto');
+      if (!silent) toast(t('toast.autosaved'), 'info', 1800);
+    } catch (e) { if (!silent) toast(t('toast.autosaveFail'), 'bad'); }
   }
   function loadSlot(id) {
     try {
       const s = SC.Storage.load(id);
       G.startGame(s);
-      toast('„' + s.name + '“ geladen.', 'good', 2500);
-    } catch (e) { toast('Laden fehlgeschlagen: ' + e.message, 'bad', 6000); }
+      toast(t('toast.loaded', { name: s.name }), 'good', 2500);
+    } catch (e) { toast(t('toast.loadFail', { e: e.message }), 'bad', 6000); }
   }
+  const safeName = str => str.replace(/[^\wäöüÄÖÜß-]+/g, '_') || 'Heliotown';
   function fileName(s) {
-    return (s.name.replace(/[^\wäöüÄÖÜß-]+/g, '_') || 'Heliotown') + '_' + SC.MONTHS[s.month] + s.year + '.heliotown.json';
+    return safeName(s.name) + '_' + (s.year * 100 + s.month + 1) + '.heliotown.json';
   }
   function download(name, text) {
     const blob = new Blob([text], { type: 'application/json' });
@@ -680,11 +717,11 @@
     rd.onload = () => {
       try {
         const s = SC.deserialize(JSON.parse(rd.result));
-        if (G.s && !confirm('Importierten Spielstand „' + s.name + '“ laden? Das aktuelle Spiel wird beendet.')) return;
+        if (G.s && !confirm(t('confirm.import', { name: s.name }))) return;
         if (G.s) autosave(true);
         G.startGame(s);
-        toast('„' + s.name + '“ importiert. Tipp: Über 💾 kannst du es im Browser speichern.', 'good', 5000);
-      } catch (err) { toast('Import fehlgeschlagen: ' + err.message, 'bad', 6000); }
+        toast(t('toast.imported', { name: s.name }), 'good', 5000);
+      } catch (err) { toast(t('toast.importFail', { e: err.message }), 'bad', 6000); }
     };
     rd.readAsText(f);
   }
@@ -693,54 +730,55 @@
     const list = SC.Storage.list();
     let used = 0;
     try { for (let i = 0; i < localStorage.length; i++) { const k = localStorage.key(i); if (k.startsWith('heliotown.')) used += (localStorage.getItem(k) || '').length; } } catch (e) { /* */ }
+    const label = e => (e.id === 'auto' ? t('sl.autoLabel') : e.label);
     let html = '';
     if (G.s) html += '<div class="saveRow"><input type="text" id="slName" maxlength="40" value="' + esc(G.s.name) + ' – ' + esc(SC.dateStr(G.s)) + '">' +
-      '<button class="btn primary" id="slSave">💾 Speichern</button></div>';
+      '<button class="btn primary" id="slSave">💾 ' + t('sl.save') + '</button></div>';
     html += '<div class="slots">';
-    if (!list.length) html += '<p class="note">Noch keine Spielstände vorhanden.</p>';
+    if (!list.length) html += '<p class="note">' + t('sl.none') + '</p>';
     for (const e of list) {
-      const when = new Date(e.savedAt).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' });
-      html += '<div class="slot"><div class="meta"><b>' + (e.id === 'auto' ? '🔄 ' : '') + esc(e.label) + '</b><small>' +
-        esc(e.city) + ' · ' + esc(e.date) + ' · ' + SC.fmtNum(e.pop) + ' EW · ' + SC.fmtMoney(e.money) + ' · ' + esc(e.size) + ' · gespeichert ' + when + '</small></div>' +
-        '<button class="btn small primary" data-load="' + esc(e.id) + '">Laden</button>' +
-        '<button class="btn small" data-exp="' + esc(e.id) + '" title="Als Datei exportieren">⬇</button>' +
-        '<button class="btn small danger" data-del="' + esc(e.id) + '" title="Löschen">🗑</button></div>';
+      const when = new Date(e.savedAt).toLocaleString(SC.locale(), { dateStyle: 'short', timeStyle: 'short' });
+      html += '<div class="slot"><div class="meta"><b>' + (e.id === 'auto' ? '🔄 ' : '') + esc(label(e)) + '</b><small>' +
+        esc(e.city) + ' · ' + esc(e.date) + ' · ' + SC.fmtNum(e.pop) + ' ' + t('sl.res') + ' · ' + SC.fmtMoney(e.money) + ' · ' + esc(e.size) + ' · ' + t('sl.savedAt', { t: when }) + '</small></div>' +
+        '<button class="btn small primary" data-load="' + esc(e.id) + '">' + t('sl.load') + '</button>' +
+        '<button class="btn small" data-exp="' + esc(e.id) + '" title="' + esc(t('sl.export')) + '">⬇</button>' +
+        '<button class="btn small danger" data-del="' + esc(e.id) + '" title="' + esc(t('sl.delete')) + '">🗑</button></div>';
     }
     html += '</div><div class="actions" style="justify-content:space-between">' +
-      '<span class="note">Belegt: ' + Math.round(used / 1024) + ' KB (Browser-Limit ca. 5.000 KB)</span><span style="display:flex;gap:8px;flex-wrap:wrap">' +
-      '<button class="btn" id="slImport">📥 Datei importieren</button>' +
-      (G.s ? '<button class="btn" id="slExport">⬇ Aktuelles Spiel exportieren</button>' : '') +
-      (!G.s ? '<button class="btn" id="slBack">Zurück</button>' : '') + '</span></div>' +
-      '<p class="note">Exportierte Dateien (.heliotown.json) kannst du auf einen anderen PC kopieren und dort importieren.</p>';
-    const d = openDialog(mode === 'save' ? '💾 Speichern & Laden' : '📂 Spiel laden', html, { menu: !G.s });
+      '<span class="note">' + t('sl.used', { n: Math.round(used / 1024) }) + '</span><span style="display:flex;gap:8px;flex-wrap:wrap">' +
+      '<button class="btn" id="slImport">📥 ' + t('sl.importFile') + '</button>' +
+      (G.s ? '<button class="btn" id="slExport">⬇ ' + t('sl.exportCurrent') + '</button>' : '') +
+      (!G.s ? '<button class="btn" id="slBack">' + t('btn.back') + '</button>' : '') + '</span></div>' +
+      '<p class="note">' + t('sl.note') + '</p>';
+    const d = openDialog(mode === 'save' ? '💾 ' + t('sl.titleSave') : '📂 ' + t('sl.titleLoad'), html, { menu: !G.s });
     if (G.s) {
       $('slSave').addEventListener('click', () => {
-        const label = $('slName').value.trim() || G.s.name;
-        const ex = list.find(e => e.label === label && e.id !== 'auto');
-        if (ex && !confirm('Spielstand „' + label + '“ überschreiben?')) return;
+        const name = $('slName').value.trim() || G.s.name;
+        const ex = list.find(e => e.label === name && e.id !== 'auto');
+        if (ex && !confirm(t('confirm.overwrite', { name }))) return;
         try {
-          SC.Storage.save(ex ? ex.id : 'save_' + Date.now(), G.s, label);
-          toast('Gespeichert: ' + label, 'good', 2500);
+          SC.Storage.save(ex ? ex.id : 'save_' + Date.now(), G.s, name);
+          toast(t('toast.savedAs', { name }), 'good', 2500);
           showSaveLoad(mode);
-        } catch (e) { toast('Speichern fehlgeschlagen (Speicher voll?). Lösche alte Stände oder exportiere als Datei.', 'bad', 6000); }
+        } catch (e) { toast(t('toast.saveFull'), 'bad', 6000); }
       });
       $('slExport').addEventListener('click', () => download(fileName(G.s), JSON.stringify(SC.serialize(G.s))));
     }
     if ($('slBack')) $('slBack').addEventListener('click', showMainMenu);
     $('slImport').addEventListener('click', () => $('fileInput').click());
     d.querySelectorAll('[data-load]').forEach(b => b.addEventListener('click', () => {
-      if (G.s && !confirm('Spielstand laden? Nicht gespeicherter Fortschritt geht verloren.')) return;
+      if (G.s && !confirm(t('confirm.load'))) return;
       if (G.s && b.dataset.load !== 'auto') autosave(true);
       loadSlot(b.dataset.load);
     }));
     d.querySelectorAll('[data-exp]').forEach(b => b.addEventListener('click', () => {
       const raw = SC.Storage.raw(b.dataset.exp);
       const e = list.find(x => x.id === b.dataset.exp);
-      if (raw) download((e.city || 'Heliotown').replace(/[^\wäöüÄÖÜß-]+/g, '_') + '_' + e.date.replace(' ', '') + '.heliotown.json', raw);
+      if (raw) download(safeName(e.city || '') + '_' + safeName(e.date || '') + '.heliotown.json', raw);
     }));
     d.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', () => {
       const e = list.find(x => x.id === b.dataset.del);
-      if (!confirm('Spielstand „' + e.label + '“ endgültig löschen? Das kann nicht rückgängig gemacht werden.')) return;
+      if (!confirm(t('confirm.delete', { name: label(e) }))) return;
       SC.Storage.remove(b.dataset.del);
       showSaveLoad(mode);
     }));
@@ -750,24 +788,23 @@
   function showBudget() {
     const s = G.s;
     const html = '<div class="form" style="grid-template-columns:140px 1fr 50px">' +
-      '<label>Steuersatz</label><input type="range" id="bTax" min="0" max="20" step="1" value="' + s.tax + '"><b id="bTaxV">' + s.tax + '%</b></div>' +
+      '<label>' + t('bd.tax') + '</label><input type="range" id="bTax" min="0" max="20" step="1" value="' + s.tax + '"><b id="bTaxV">' + s.tax + '%</b></div>' +
       '<p class="note" id="bTaxHint"></p><table class="tbl" id="bTable"></table>' +
-      '<p class="note">Einnahmen und Ausgaben werden monatlich verbucht. Steuern über 7 % bremsen das Wachstum, niedrigere fördern es.</p>' +
-      '<div class="actions"><button class="btn primary" id="bOk">OK</button></div>';
-    openDialog('💰 Haushalt', html);
+      '<p class="note">' + t('bd.note') + '</p>' +
+      '<div class="actions"><button class="btn primary" id="bOk">' + t('btn.ok') + '</button></div>';
+    openDialog('💰 ' + t('bd.title'), html);
     const render = () => {
       Sim.computeDemand(s);
       const b = Sim.estimateBudget(s);
       $('bTaxV').textContent = s.tax + '%';
-      $('bTaxHint').textContent = s.tax <= 4 ? 'Sehr niedrige Steuern – die Stadt wächst schnell, aber die Kasse leidet.' :
-        s.tax <= 8 ? 'Ausgewogene Steuern.' : s.tax <= 12 ? 'Erhöhte Steuern – das Wachstum verlangsamt sich.' : 'Sehr hohe Steuern – Bürger und Firmen ziehen weg!';
+      $('bTaxHint').textContent = t(s.tax <= 4 ? 'bd.hint1' : s.tax <= 8 ? 'bd.hint2' : s.tax <= 12 ? 'bd.hint3' : 'bd.hint4');
       const r = (n, v, cls) => '<tr' + (cls ? ' class="' + cls + '"' : '') + '><td>' + n + '</td><td class="num ' + (v < 0 ? 'negc' : v > 0 ? 'pos' : '') + '">' + SC.fmtMoney(v) + '</td></tr>';
       $('bTable').innerHTML =
-        '<tr><td colspan="2" class="note">Prognose pro Monat</td></tr>' +
-        r('🏛️ Steuereinnahmen', b.income) + r('🛣️ Straßen & Leitungen', -b.roads) + r('⚡ Kraftwerke', -b.power) +
-        r('🏥 Öffentliche Dienste & Parks', -b.services) + r('Saldo pro Monat', b.net, 'sum') + r('Prognose pro Jahr', b.net * 12) +
-        '<tr><td>Letzter Monat</td><td class="num ' + (s.budget.net < 0 ? 'negc' : 'pos') + '">' + SC.fmtMoney(s.budget.net || 0) + '</td></tr>' +
-        '<tr class="sum"><td>💶 Kassenstand</td><td class="num">' + SC.fmtMoney(s.money) + '</td></tr>';
+        '<tr><td colspan="2" class="note">' + t('bd.forecastMonth') + '</td></tr>' +
+        r('🏛️ ' + t('bd.taxIncome'), b.income) + r('🛣️ ' + t('bd.roads'), -b.roads) + r('⚡ ' + t('bd.plants'), -b.power) +
+        r('🏥 ' + t('bd.services'), -b.services) + r(t('bd.net'), b.net, 'sum') + r(t('bd.year'), b.net * 12) +
+        '<tr><td>' + t('bd.last') + '</td><td class="num ' + (s.budget.net < 0 ? 'negc' : 'pos') + '">' + SC.fmtMoney(s.budget.net || 0) + '</td></tr>' +
+        '<tr class="sum"><td>💶 ' + t('bd.cash') + '</td><td class="num">' + SC.fmtMoney(s.money) + '</td></tr>';
     };
     render();
     $('bTax').addEventListener('input', e => { s.tax = +e.target.value; render(); updateTopbar(); });
@@ -779,17 +816,17 @@
     const s = G.s, st = s.stats;
     const count = key => s.buildings.filter(b => SC.BTYPES[b.t].key === key).length;
     const html = '<div class="statgrid">' +
-      row('Einwohner', SC.fmtNum(st.pop)) + row('Stadtgröße', SC.cityClass(st.pop)) +
-      row('Jobs Gewerbe', SC.fmtNum(st.jobsC)) + row('Jobs Industrie', SC.fmtNum(st.jobsI)) +
-      row('Wohnzonen', SC.fmtNum(st.zones[1])) + row('Gewerbezonen', SC.fmtNum(st.zones[2])) +
-      row('Industriezonen', SC.fmtNum(st.zones[3])) + row('Straßen', SC.fmtNum(st.roads + st.bridges)) +
-      row('Strom', SC.fmtNum(s.power.demand) + ' / ' + SC.fmtNum(s.power.capacity)) + row('Ohne Strom', SC.fmtNum(st.unpowered)) +
-      row('Polizei / Feuerwehr', count('police') + ' / ' + count('fire')) + row('Schulen / Kliniken', count('school') + ' / ' + count('hospital')) +
-      '</div><div class="sidehead">Einwohner</div><canvas class="chart" id="chPop"></canvas>' +
-      '<div class="sidehead">Kassenstand</div><canvas class="chart" id="chMoney"></canvas>' +
-      '<div class="sidehead">Nachrichten</div><div class="log">' +
-      s.log.slice().reverse().map(e => '<div class="' + e.type + '"><span class="note">' + esc(e.d) + '</span> ' + esc(e.msg) + '</div>').join('') + '</div>';
-    openDialog('📈 Statistik – ' + esc(s.name), html, { width: '680px' });
+      row(t('st.pop'), SC.fmtNum(st.pop)) + row(t('st.size'), SC.cityClass(st.pop)) +
+      row(t('st.jobsC'), SC.fmtNum(st.jobsC)) + row(t('st.jobsI'), SC.fmtNum(st.jobsI)) +
+      row(t('st.zR'), SC.fmtNum(st.zones[1])) + row(t('st.zC'), SC.fmtNum(st.zones[2])) +
+      row(t('st.zI'), SC.fmtNum(st.zones[3])) + row(t('st.roads'), SC.fmtNum(st.roads + st.bridges)) +
+      row(t('st.power'), SC.fmtNum(s.power.demand) + ' / ' + SC.fmtNum(s.power.capacity)) + row(t('st.unpowered'), SC.fmtNum(st.unpowered)) +
+      row(t('st.pf'), count('police') + ' / ' + count('fire')) + row(t('st.sh'), count('school') + ' / ' + count('hospital')) +
+      '</div><div class="sidehead">' + t('st.chPop') + '</div><canvas class="chart" id="chPop"></canvas>' +
+      '<div class="sidehead">' + t('st.chMoney') + '</div><canvas class="chart" id="chMoney"></canvas>' +
+      '<div class="sidehead">' + t('st.news') + '</div><div class="log">' +
+      s.log.slice().reverse().map(e => '<div class="' + e.type + '"><span class="note">' + esc(SC.msgDate(e)) + '</span> ' + esc(SC.msgText(e)) + '</div>').join('') + '</div>';
+    openDialog('📈 ' + t('st.title') + ' – ' + esc(s.name), html, { width: '680px' });
     chart($('chPop'), s.history.map(h => h.pop), '#3fbf5a', v => SC.fmtNum(v));
     chart($('chMoney'), s.history.map(h => h.money), '#ffb703', v => SC.fmtMoney(v));
   }
@@ -799,7 +836,7 @@
     const c = cv.getContext('2d');
     c.scale(dpr, dpr);
     c.font = '11px system-ui, sans-serif'; c.fillStyle = '#9aa7b8';
-    if (data.length < 2) { c.fillText('Noch zu wenige Daten – lass die Zeit laufen.', 12, h / 2); return; }
+    if (data.length < 2) { c.fillText(t('ch.few'), 12, h / 2); return; }
     const pts = data.slice(-240);
     let mn = Math.min(0, ...pts), mx = Math.max(...pts);
     if (mx === mn) mx = mn + 1;
@@ -818,18 +855,20 @@
     c.lineTo(X(pts.length - 1), Y(mn)); c.lineTo(X(0), Y(mn)); c.closePath();
     c.fillStyle = color + '22'; c.fill();
     c.textAlign = 'left'; c.textBaseline = 'alphabetic'; c.fillStyle = '#9aa7b8';
-    c.fillText('letzte ' + pts.length + ' Monate', L, h - 4);
+    c.fillText(t('ch.last', { n: pts.length }), L, h - 4);
   }
 
   // ---------- Einstellungen ----------
   function showSettings() {
     const s = G.s;
     const html = '<div class="form">' +
-      '<label>Stadtname</label><input type="text" id="seName" maxlength="40" value="' + esc(s.name) + '">' +
-      '<label>Katastrophen</label><label><input type="checkbox" id="seDis"' + (s.disasters ? ' checked' : '') + '> Brände können ausbrechen</label>' +
-      '<label>Autosave</label><label><input type="checkbox" id="seAuto"' + (s.autosave ? ' checked' : '') + '> jedes Spieljahr und alle 2 Minuten</label>' +
-      '</div><div class="actions"><button class="btn" id="seBack">Zurück</button><button class="btn primary" id="seOk">Übernehmen</button></div>';
-    openDialog('⚙️ Einstellungen', html, { menu: true });
+      '<label>' + t('se.city') + '</label><input type="text" id="seName" maxlength="40" value="' + esc(s.name) + '">' +
+      '<label>' + t('se.disasters') + '</label><label><input type="checkbox" id="seDis"' + (s.disasters ? ' checked' : '') + '> ' + t('se.fires') + '</label>' +
+      '<label>' + t('se.autosave') + '</label><label><input type="checkbox" id="seAuto"' + (s.autosave ? ' checked' : '') + '> ' + t('se.autoDesc') + '</label>' +
+      '<label>' + t('se.language') + '</label>' + langPicker('seLang') +
+      '</div><div class="actions"><button class="btn" id="seBack">' + t('btn.back') + '</button><button class="btn primary" id="seOk">' + t('se.apply') + '</button></div>';
+    openDialog('⚙️ ' + t('se.title'), html, { menu: true });
+    bindLangPicker('seLang', showSettings);
     $('seBack').addEventListener('click', showMainMenu);
     $('seOk').addEventListener('click', () => {
       s.name = $('seName').value.trim() || s.name;
@@ -842,31 +881,9 @@
 
   // ---------- Hilfe ----------
   function showHelp() {
-    const html = '<div class="help">' +
-      '<h3>So startest du</h3><ol>' +
-      '<li><b>Kraftwerk bauen</b> (Kohle, Solar oder Windrad).</li>' +
-      '<li><b>Straßen ziehen</b> – Zonen brauchen eine Straße in höchstens 3 Feldern Abstand.</li>' +
-      '<li><b>Zonen ausweisen</b>: Wohnen (W), Gewerbe (G) und Industrie (I) per Ziehen aufspannen.</li>' +
-      '<li><b>Strom verlegen</b> – Straßen, Zonen und Gebäude leiten Strom an Nachbarfelder weiter. Lücken über freies Gelände oder Wasser überbrückst du mit Stromleitungen.</li>' +
-      '<li>Zeit laufen lassen und die <b>Nachfrage-Balken</b> (W/G/I) oben im Blick behalten.</li></ol>' +
-      '<h3>Tipps</h3><ul>' +
-      '<li>Industrie verschmutzt – halte Abstand zu Wohngebieten. Parks und Wald verbessern die Luft.</li>' +
-      '<li>Hoher Bodenwert (Wasser, Parks, Schulen) lässt Hochhäuser entstehen.</li>' +
-      '<li>Polizei senkt Kriminalität, Feuerwehr löscht Brände schnell.</li>' +
-      '<li>Ab 250 Einwohnern entstehen mittlere, ab 2.000 große Gebäude.</li>' +
-      '<li>Die Ansichten rechts (Strom, Anbindung, Verschmutzung …) zeigen Probleme sofort.</li></ul>' +
-      '<h3>Steuerung</h3><ul>' +
-      '<li><b>Linke Maustaste</b>: bauen (ziehen für Straßen, Leitungen, Zonen, Abriss)</li>' +
-      '<li><b>Rechte/mittlere Maustaste ziehen</b> oder Info-Werkzeug ziehen: Karte verschieben</li>' +
-      '<li><b>Mausrad</b>: zoomen · <kbd>+</kbd>/<kbd>−</kbd> zoomen · <kbd>Pfeiltasten</kbd> verschieben</li>' +
-      '<li><kbd>Leertaste</kbd> Pause · <kbd>1</kbd> <kbd>2</kbd> <kbd>3</kbd> Geschwindigkeit</li>' +
-      '<li><kbd>V</kbd> 3D-/2D-Ansicht · <kbd>Z</kbd>/<kbd>X</kbd> (oder <kbd>,</kbd>/<kbd>.</kbd>) Ansicht drehen</li>' +
-      '<li><kbd>Q</kbd> Info · <kbd>B</kbd> Abriss · <kbd>R</kbd> Straße · <kbd>L</kbd> Leitung · <kbd>W</kbd> <kbd>G</kbd> <kbd>I</kbd> Zonen · <kbd>Esc</kbd> abbrechen</li>' +
-      '<li><kbd>Strg</kbd>+<kbd>S</kbd> Schnellspeichern</li></ul>' +
-      '<h3>Spielstände</h3><p>Alles wird lokal im Browser gespeichert (automatisch jedes Spieljahr). ' +
-      'Um eine Stadt auf einen anderen PC mitzunehmen, exportiere sie unter 💾 als Datei und importiere sie dort.</p></div>' +
-      '<div class="actions"><button class="btn primary" id="hOk">Los geht’s!</button></div>';
-    openDialog('❓ Anleitung', html, { menu: !G.s });
+    const html = '<div class="help">' + t('help.html') + '</div>' +
+      '<div class="actions"><button class="btn primary" id="hOk">' + t('help.go') + '</button></div>';
+    openDialog('❓ ' + t('help.title'), html, { menu: !G.s });
     $('hOk').addEventListener('click', () => (G.s ? closeDialog() : showMainMenu()));
   }
 })(window.SC);

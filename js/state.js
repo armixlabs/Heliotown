@@ -115,7 +115,7 @@
   SC.newGame = function (opts) {
     const s = SC.createState({ W: opts.size, H: opts.size, name: opts.name, seed: opts.seed, money: opts.money, disasters: opts.disasters });
     SC.generateTerrain(s, { water: opts.water });
-    SC.notify(s, 'Willkommen in ' + s.name + '! Baue ein Kraftwerk, Straßen und Zonen.', 'good');
+    SC.notify(s, 'msg.welcome', { city: s.name }, 'good');
     return s;
   };
 
@@ -313,8 +313,8 @@
 
   SC.deserialize = function (o) {
     // 'SunCity' = früherer Name des Spiels; solche Spielstände bleiben ladbar
-    if (!o || (o.app !== 'Heliotown' && o.app !== 'SunCity') || !o.maps || !o.W || !o.H) throw new Error('Keine gültige Heliotown-Spielstanddatei.');
-    if (o.v > SC.VERSION) throw new Error('Der Spielstand stammt aus einer neueren Heliotown-Version.');
+    if (!o || (o.app !== 'Heliotown' && o.app !== 'SunCity') || !o.maps || !o.W || !o.H) throw new Error(SC.t('err.invalid'));
+    if (o.v > SC.VERSION) throw new Error(SC.t('err.newer'));
     const s = SC.createState({ W: o.W, H: o.H, name: o.name, seed: o.seed, money: o.money });
     for (const f of FIELDS) if (o[f] !== undefined) s[f] = o[f];
     s.v = SC.VERSION;
@@ -363,7 +363,7 @@
     },
     load(id) {
       const raw = localStorage.getItem(PREFIX + 'slot.' + id);
-      if (!raw) throw new Error('Spielstand nicht gefunden.');
+      if (!raw) throw new Error(SC.t('err.notFound'));
       return SC.deserialize(JSON.parse(raw));
     },
     raw(id) { return localStorage.getItem(PREFIX + 'slot.' + id); },

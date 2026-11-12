@@ -9,70 +9,68 @@ window.SC = window.SC || {};
   // Feldarten
   SC.KIND = { EMPTY: 0, ROAD: 1, WIRE: 2, ROADWIRE: 3, ZONE: 4, BUILDING: 5, RUBBLE: 6 };
 
-  SC.ZONE_NAMES = ['', 'Wohngebiet', 'Gewerbegebiet', 'Industriegebiet'];
   SC.ZONE_COLORS = ['', '#3fbf5a', '#3a8ef0', '#f2b21b'];
   // Einwohner (Wohnen) bzw. Arbeitsplätze (Gewerbe/Industrie) je Ausbaustufe 0..3
   SC.CAPACITY = [null, [0, 12, 40, 110], [0, 8, 25, 70], [0, 12, 35, 80]];
 
   SC.COST = { road: 10, bridge: 60, wire: 5, wireWater: 25, zone: 10, trees: 3, rubble: 5, bulldoze: 5, demolish: 40 };
 
-  SC.MONTHS = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+  // Sichtbare Texte (Namen, Beschreibungen, Monate …) stehen in i18n.js
+  Object.defineProperty(SC, 'MONTHS', { get: () => SC.t('months') });
+  Object.defineProperty(SC, 'ZONE_NAMES', { get: () => ['', SC.t('zone.1'), SC.t('zone.2'), SC.t('zone.3')] });
 
   // Gebäudetypen (Index = ID)
   SC.BTYPES = [null,
-    { key: 'coal', name: 'Kohlekraftwerk', size: 3, cost: 3000, upkeep: 30, power: 900, pollution: 255, icon: '🏭', group: 'Energie',
-      desc: 'Günstiger Strom für 900 Felder – verschmutzt aber stark die Luft.' },
-    { key: 'solar', name: 'Solarpark', size: 3, cost: 6500, upkeep: 40, power: 600, icon: '☀️', group: 'Energie',
-      desc: 'Sauberer Sonnenstrom für 600 Felder – das Herz von Heliotown.' },
-    { key: 'wind', name: 'Windrad', size: 1, cost: 450, upkeep: 4, power: 50, icon: '🌬️', group: 'Energie',
-      desc: 'Kleines, sauberes Windrad für 50 Felder.' },
-    { key: 'police', name: 'Polizeiwache', size: 2, cost: 700, upkeep: 25, radius: 14, icon: '🚓', group: 'Dienste',
-      desc: 'Senkt die Kriminalität im Umkreis.' },
-    { key: 'fire', name: 'Feuerwache', size: 2, cost: 700, upkeep: 25, radius: 14, icon: '🚒', group: 'Dienste',
-      desc: 'Löscht Brände im Umkreis schnell.' },
-    { key: 'school', name: 'Schule', size: 2, cost: 900, upkeep: 30, radius: 16, icon: '🏫', group: 'Dienste',
-      desc: 'Bildung macht Wohngebiete attraktiver.' },
-    { key: 'hospital', name: 'Krankenhaus', size: 2, cost: 1200, upkeep: 40, radius: 18, icon: '🏥', group: 'Dienste',
-      desc: 'Gesundheitsversorgung steigert die Lebensqualität.' },
-    { key: 'park', name: 'Park', size: 1, cost: 60, upkeep: 1, radius: 5, icon: '🌳', group: 'Freizeit',
-      desc: 'Erhöht den Bodenwert und senkt die Verschmutzung.' },
-    { key: 'stadium', name: 'Stadion', size: 3, cost: 9000, upkeep: 90, radius: 30, minPop: 3000, icon: '🏟️', group: 'Freizeit',
-      desc: 'Großer Bodenwert-Bonus und mehr Gewerbe. Ab 3.000 Einwohnern.' }
+    { key: 'coal', size: 3, cost: 3000, upkeep: 30, power: 900, pollution: 255, icon: '🏭', group: 'energy' },
+    { key: 'solar', size: 3, cost: 6500, upkeep: 40, power: 600, icon: '☀️', group: 'energy' },
+    { key: 'wind', size: 1, cost: 450, upkeep: 4, power: 50, icon: '🌬️', group: 'energy' },
+    { key: 'police', size: 2, cost: 700, upkeep: 25, radius: 14, icon: '🚓', group: 'services' },
+    { key: 'fire', size: 2, cost: 700, upkeep: 25, radius: 14, icon: '🚒', group: 'services' },
+    { key: 'school', size: 2, cost: 900, upkeep: 30, radius: 16, icon: '🏫', group: 'services' },
+    { key: 'hospital', size: 2, cost: 1200, upkeep: 40, radius: 18, icon: '🏥', group: 'services' },
+    { key: 'park', size: 1, cost: 60, upkeep: 1, radius: 5, icon: '🌳', group: 'leisure' },
+    { key: 'stadium', size: 3, cost: 9000, upkeep: 90, radius: 30, minPop: 3000, icon: '🏟️', group: 'leisure' }
   ];
   SC.BKEY = {};
-  SC.BTYPES.forEach((b, i) => { if (b) { b.id = i; SC.BKEY[b.key] = b; } });
+  SC.BTYPES.forEach((b, i) => {
+    if (!b) return;
+    b.id = i; SC.BKEY[b.key] = b;
+    Object.defineProperty(b, 'name', { get: () => SC.t('b.' + b.key) });
+    Object.defineProperty(b, 'desc', { get: () => SC.t('b.' + b.key + '.desc') });
+  });
 
   // Werkzeuge
   SC.TOOLS = [
-    { id: 'query', name: 'Info', icon: '🔍', key: 'q', group: 'Werkzeuge',
-      desc: 'Feld anklicken zeigt Details. Ziehen verschiebt die Karte.' },
-    { id: 'bulldoze', name: 'Abreißen', icon: '🚜', key: 'b', group: 'Werkzeuge', drag: 'rect', cost: SC.COST.bulldoze,
-      desc: 'Entfernt Gebäude, Straßen, Leitungen, Zonen und Bäume.' },
-    { id: 'road', name: 'Straße', icon: '🛣️', key: 'r', group: 'Infrastruktur', drag: 'line', cost: SC.COST.road,
-      desc: 'Erschließt Zonen (max. 3 Felder Abstand) und leitet Strom. Über Wasser entstehen Brücken.' },
-    { id: 'wire', name: 'Stromleitung', icon: '⚡', key: 'l', group: 'Infrastruktur', drag: 'line', cost: SC.COST.wire,
-      desc: 'Überbrückt freies Gelände oder Wasser zwischen Kraftwerk und Stadt. Straßen, Zonen und Gebäude leiten Strom selbst weiter.' },
-    { id: 'zoneR', name: 'Wohnzone', icon: '🏠', key: 'w', group: 'Zonen', drag: 'rect', zone: 1, cost: SC.COST.zone,
-      desc: 'Hier ziehen Einwohner hin. Braucht Strom und Straße.' },
-    { id: 'zoneC', name: 'Gewerbezone', icon: '🏬', key: 'g', group: 'Zonen', drag: 'rect', zone: 2, cost: SC.COST.zone,
-      desc: 'Läden und Büros schaffen Arbeitsplätze.' },
-    { id: 'zoneI', name: 'Industriezone', icon: '⚙️', key: 'i', group: 'Zonen', drag: 'rect', zone: 3, cost: SC.COST.zone,
-      desc: 'Fabriken bieten viele Jobs, verschmutzen aber die Umgebung.' }
+    { id: 'query', icon: '🔍', key: 'q', group: 'tools' },
+    { id: 'bulldoze', icon: '🚜', key: 'b', group: 'tools', drag: 'rect', cost: SC.COST.bulldoze },
+    { id: 'road', icon: '🛣️', key: 'r', group: 'infra', drag: 'line', cost: SC.COST.road },
+    { id: 'wire', icon: '⚡', key: 'l', group: 'infra', drag: 'line', cost: SC.COST.wire },
+    { id: 'zoneR', icon: '🏠', key: 'w', group: 'zones', drag: 'rect', zone: 1, cost: SC.COST.zone },
+    { id: 'zoneC', icon: '🏬', key: 'g', group: 'zones', drag: 'rect', zone: 2, cost: SC.COST.zone },
+    { id: 'zoneI', icon: '⚙️', key: 'i', group: 'zones', drag: 'rect', zone: 3, cost: SC.COST.zone }
   ];
   SC.BTYPES.forEach(b => {
     if (!b) return;
-    SC.TOOLS.push({ id: 'b_' + b.key, name: b.name, icon: b.icon, group: b.group, building: b.id,
-      drag: b.size === 1 ? 'rect' : null, cost: b.cost, desc: b.desc });
+    SC.TOOLS.push({ id: 'b_' + b.key, icon: b.icon, group: b.group, building: b.id,
+      drag: b.size === 1 ? 'rect' : null, cost: b.cost });
   });
   SC.TOOL = {};
-  SC.TOOLS.forEach(t => { SC.TOOL[t.id] = t; });
+  SC.TOOLS.forEach(tool => {
+    SC.TOOL[tool.id] = tool;
+    const base = tool.building ? 'b.' + SC.BTYPES[tool.building].key : 'tool.' + tool.id;
+    Object.defineProperty(tool, 'name', { get: () => SC.t(base) });
+    Object.defineProperty(tool, 'desc', { get: () => SC.t(base + '.desc') });
+    Object.defineProperty(tool, 'groupName', { get: () => SC.t('grp.' + tool.group) });
+  });
 
-  SC.CITY_CLASSES = [[0, 'Siedlung'], [500, 'Dorf'], [2000, 'Kleinstadt'], [10000, 'Stadt'], [40000, 'Großstadt'], [100000, 'Metropole']];
-  SC.cityClass = function (pop) {
-    let name = SC.CITY_CLASSES[0][1];
-    for (const [p, n] of SC.CITY_CLASSES) if (pop >= p) name = n;
-    return name;
+  // Einwohnerschwellen der Stadtgrößen; Namen in i18n.js ('class', 'classA')
+  SC.CITY_CLASSES = [0, 500, 2000, 10000, 40000, 100000];
+  SC.cityClassIndex = function (pop) {
+    let idx = 0;
+    SC.CITY_CLASSES.forEach((p, i) => { if (pop >= p) idx = i; });
+    return idx;
   };
+  SC.cityClass = pop => SC.t('class')[SC.cityClassIndex(pop)];
 
   // Millisekunden je Spieltag pro Geschwindigkeitsstufe
   SC.SPEEDS = [0, 200, 70, 18];
@@ -92,17 +90,24 @@ window.SC = window.SC || {};
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   };
   SC.clamp = (v, a, b) => (v < a ? a : v > b ? b : v);
-  SC.fmtNum = n => Math.round(n).toLocaleString('de-DE');
-  SC.fmtMoney = n => (n < 0 ? '−' : '') + Math.abs(Math.round(n)).toLocaleString('de-DE') + ' €';
+  SC.fmtNum = n => Math.round(n).toLocaleString(SC.locale());
+  SC.fmtMoney = (n, decimals) => {
+    const v = Math.abs(decimals ? n : Math.round(n)).toLocaleString(SC.locale(), { minimumFractionDigits: decimals || 0, maximumFractionDigits: decimals || 0 });
+    return (n < 0 ? '−' : '') + (SC.lang === 'de' ? v + ' €' : '€' + v);
+  };
   SC.dateStr = s => SC.MONTHS[s.month] + ' ' + s.year;
+  SC.msgText = e => (e.k ? SC.t(e.k, e.p || undefined) : e.msg);
+  SC.msgDate = e => (e.k ? SC.MONTHS[e.m] + ' ' + e.y : e.d);
   SC.esc = str => String(str).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   // Einfacher Nachrichtenkanal
   SC.listeners = {};
   SC.on = (ev, fn) => { (SC.listeners[ev] = SC.listeners[ev] || []).push(fn); };
   SC.emit = (ev, data) => { (SC.listeners[ev] || []).forEach(fn => fn(data)); };
-  SC.notify = function (s, msg, type) {
-    const entry = { d: SC.dateStr(s), msg, type: type || 'info' };
+  // Meldungen werden als Schlüssel + Parameter gespeichert, damit sie die Sprache wechseln können.
+  // Ältere Spielstände enthalten fertigen Text (msg) und ein Datum als Text (d).
+  SC.notify = function (s, key, params, type) {
+    const entry = { k: key, p: params || null, m: s.month, y: s.year, type: type || 'info' };
     s.log.push(entry);
     if (s.log.length > 60) s.log.shift();
     SC.emit('notify', entry);

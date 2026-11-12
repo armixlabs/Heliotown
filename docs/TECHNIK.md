@@ -6,7 +6,8 @@ Dieses Dokument beschreibt den Aufbau des Codes für alle, die Heliotown weitere
 
 - **Keine Abhängigkeiten, kein Build.** Reines JavaScript, HTML und CSS.
 - **Läuft von `file://`.** Deshalb klassische `<script>`-Tags statt ES-Module (Browser blockieren Module bei `file://`) und kein `fetch` lokaler Dateien.
-- **Ein globaler Namensraum `SC`.** Jede Datei ist eine selbstausführende Funktion, die ihre Teile an `window.SC` hängt. Die Ladereihenfolge in `index.html` ist wichtig: `data.js` → `state.js` → `sim.js` → `render.js` → `render3d.js` → `ui.js`.
+- **Ein globaler Namensraum `SC`.** Jede Datei ist eine selbstausführende Funktion, die ihre Teile an `window.SC` hängt. Die Ladereihenfolge in `index.html` ist wichtig: `data.js` → `i18n.js` → `state.js` → `sim.js` → `render.js` → `render3d.js` → `ui.js`.
+- **Keine Texte im Code.** Alles, was Spieler lesen, steht in `i18n.js` und wird über `SC.t('schluessel')` geholt.
 - **Alles prozedural gezeichnet.** Gebäude, Bäume, Autos und Rauch entstehen zur Laufzeit auf einem `<canvas>`.
 
 ## Module
@@ -14,6 +15,7 @@ Dieses Dokument beschreibt den Aufbau des Codes für alle, die Heliotown weitere
 | Datei | Inhalt |
 |---|---|
 | `data.js` | Konstanten (`SC.TER`, `SC.KIND`, `SC.COST`, `SC.CAPACITY`), Gebäudetypen `SC.BTYPES`, Werkzeuge `SC.TOOLS`, Zufallsgenerator, Formatierung, Ereignisbus (`SC.on`, `SC.emit`, `SC.notify`) |
+| `i18n.js` | Übersetzungen Deutsch/Englisch (`SC.LANGS`), Übersetzungsfunktion `SC.t`, Sprachwahl (`SC.setLang`, `SC.detectLang`), Zahlenformat (`SC.locale`) |
 | `state.js` | Spielstand anlegen (`SC.createState`, `SC.newGame`), Kartengenerator, Bauaktionen (`SC.Act`), Serialisierung, `localStorage`-Verwaltung (`SC.Storage`) |
 | `sim.js` | Simulation (`SC.Sim`): Stromnetz, Straßenanbindung, Umweltkarten, Statistik, Nachfrage, Zonenwachstum, Brände, Haushalt, Berater |
 | `render.js` | 2D-Draufsicht (`SC.Render`) und Minikarte |
@@ -105,6 +107,22 @@ Grundformen sind Quader (`box`) mit Dach, linker und rechter Wand in drei Hellig
 
 **Minikarte.** Ein Pixel pro Feld, per `ImageData` erzeugt und skaliert gezeichnet; der sichtbare Bereich wird als Vieleck eingezeichnet, damit er auch in der gedrehten 3D-Ansicht stimmt.
 
+## Mehrsprachigkeit
+
+Alle sichtbaren Texte liegen in `js/i18n.js`, je Sprache ein Objekt (`de`, `en`) mit identischen Schlüsseln.
+
+- **`SC.t(key, params)`** liefert den Text in der aktuellen Sprache (`SC.lang`). Fehlt er dort, wird Deutsch verwendet, sonst der Schlüssel selbst.
+- **Platzhalter** wie `{city}` werden durch `params` ersetzt. Zahlen werden dabei im Format der Sprache ausgegeben (`2.000` bzw. `2,000`). Ein Wert mit vorangestelltem `@` wird selbst übersetzt, z. B. `{ b: '@b.stadium' }`.
+- **Listen** (Monate, Stadtgrößen, Ausbaustufen) sind Arrays; `SC.t('class.2')` liefert das dritte Element von `class`.
+- **Gebäude und Werkzeuge** haben keine festen Namen mehr: `name`, `desc` und `groupName` sind Getter, die `b.<key>` bzw. `tool.<id>` übersetzen. Ebenso sind `SC.MONTHS` und `SC.ZONE_NAMES` Getter.
+- **Feste Texte in `index.html`** tragen `data-i18n="schluessel"` (Textinhalt) oder `data-i18n-title="schluessel"` (Tooltip). `applyStaticTexts()` in `ui.js` setzt sie beim Start und beim Sprachwechsel.
+- **Sprachwechsel** (`SC.Game.setLanguage`) baut Werkzeugleiste, Ansichten-Knöpfe, Kopfleiste, Laufschrift und Info-Panel neu auf. Die Wahl liegt in `heliotown.v1.pref.lang`. Ohne gespeicherte Wahl entscheidet die Browsersprache (Deutsch für `de*`, sonst Englisch).
+- **Geld** wird je Sprache formatiert: `20.000 €` bzw. `€20,000`.
+
+**Meldungen** speichert `SC.notify(s, key, params, type)` als `{ k, p, m, y, type }`: Schlüssel, Parameter, Monat und Jahr. So erscheinen auch ältere Meldungen nach einem Sprachwechsel übersetzt. `SC.msgText(e)` und `SC.msgDate(e)` erzeugen den Text. Spielstände aus der Zeit vor der Mehrsprachigkeit enthalten fertigen Text (`{ d, msg, type }`); er wird unverändert angezeigt.
+
+**Neue Sprache hinzufügen:** In `i18n.js` ein weiteres Objekt mit allen Schlüsseln anlegen (am einfachsten `en` kopieren und übersetzen), in `SC.LANGS`, `SC.LANG_LIST` und `SC.LOCALES` eintragen und den Eintrag `lang.name` setzen. Die Sprachauswahl im Menü erscheint dann automatisch. Optional `SC.detectLang` erweitern und das Währungsformat in `SC.fmtMoney` (`data.js`) anpassen.
+
 ## Speicherformat
 
 `SC.serialize` erzeugt ein JSON-Objekt:
@@ -129,7 +147,7 @@ Jede Karte in `maps` ist **lauflängenkodiert** (Paare aus Anzahl 1–255 und We
 |---|---|
 | `heliotown.v1.index` | Liste der Spielstände (Name, Stadt, Einwohner, Datum, Größe) |
 | `heliotown.v1.slot.<id>` | Spielstand als JSON; `auto` ist der Autosave |
-| `heliotown.v1.pref.view` / `pref.rot` | gewählte Ansicht und Drehung |
+| `heliotown.v1.pref.view` / `pref.rot` / `pref.lang` | gewählte Ansicht, Drehung und Sprache |
 
 Exportierte Dateien (`*.heliotown.json`) enthalten genau dasselbe JSON. Beim Laden prüft `SC.deserialize` das Feld `app` und lehnt Spielstände einer neueren Version (`v`) ab.
 
@@ -137,14 +155,14 @@ Exportierte Dateien (`*.heliotown.json`) enthalten genau dasselbe JSON. Beim Lad
 
 ## Erweitern
 
-**Neues Gebäude:** Eintrag in `SC.BTYPES` (`data.js`) mit `key`, `name`, `size`, `cost`, `upkeep` und je nach Art `power`, `pollution`, `radius` oder `minPop`. Werkzeug und Kosten entstehen automatisch. Dann in `render.js` (`drawService`) und `render3d.js` (`drawService`) einen `case` für die Darstellung ergänzen. Eine Versorgungswirkung über `radius` landet in `s.cov[key]`. Für eine neue Wirkung `SC.allocDerived` und `Sim.computeMaps` erweitern.
+**Neues Gebäude:** Eintrag in `SC.BTYPES` (`data.js`) mit `key`, `size`, `cost`, `upkeep` und je nach Art `power`, `pollution`, `radius` oder `minPop`. Name und Beschreibung als `b.<key>` und `b.<key>.desc` in **beiden** Sprachen in `i18n.js` eintragen. Werkzeug und Kosten entstehen automatisch. Dann in `render.js` (`drawService`) und `render3d.js` (`drawService`) einen `case` für die Darstellung ergänzen. Eine Versorgungswirkung über `radius` landet in `s.cov[key]`. Für eine neue Wirkung `SC.allocDerived` und `Sim.computeMaps` erweitern.
 
-**Neue Kennzahl oder Ansicht:** Karte in `Sim.computeMaps` berechnen, in `overlayColor` beider Renderer einfärben und in `OVERLAYS`/`LEGENDS` (`ui.js`) eintragen.
+**Neue Kennzahl oder Ansicht:** Karte in `Sim.computeMaps` berechnen, in `overlayColor` beider Renderer einfärben in `OVERLAYS` und `legend()` (`ui.js`) eintragen und die Texte `ov.<key>` (und ggf. `lg.<key>`) in beiden Sprachen ergänzen.
 
 **Spielstand-Format ändern:** `SC.VERSION` erhöhen und in `SC.deserialize` ältere Versionen umwandeln, damit vorhandene Spielstände ladbar bleiben.
 
 ## Testen
 
-Es gibt keine automatisierten Tests. Die Simulation lässt sich ohne Browser in Node.js prüfen, indem man `data.js`, `state.js` und `sim.js` in einem `vm`-Kontext mit einem `window`-Objekt und einem `localStorage`-Ersatz lädt, eine Stadt über `SC.Act.apply` baut und `SC.Sim.tick` in einer Schleife aufruft.
+Es gibt keine automatisierten Tests. Die Simulation lässt sich ohne Browser in Node.js prüfen, indem man `data.js`, `i18n.js`, `state.js` und `sim.js` in einem `vm`-Kontext mit einem `window`-Objekt, einem `localStorage`-Ersatz sowie minimalen `navigator`- und `document`-Objekten lädt, eine Stadt über `SC.Act.apply` baut und `SC.Sim.tick` in einer Schleife aufruft.
 
 Für Tests im Browser genügt ein beliebiger lokaler Webserver im Projektordner, zum Beispiel `python3 -m http.server`.

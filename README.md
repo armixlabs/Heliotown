@@ -2,7 +2,7 @@
 
 **Eine Städtebau-Simulation, die komplett im Browser läuft – ohne Installation, ohne Internet, ohne Server.**
 
-*Heliotown is a city-building simulation that runs entirely in the browser. Open `index.html` and play – no install, no build step, no network.*
+*Heliotown is a city-building simulation that runs entirely in the browser. Open `index.html` and play – no install, no build step, no network. Available in German and English – switch the language in the main menu (☰).*
 
 ![Heliotown in der 3D-Ansicht](docs/screenshot-uebersicht.jpg)
 
@@ -25,6 +25,10 @@ Zum Mitnehmen auf einen anderen PC einfach den ganzen Ordner kopieren. Es gibt k
 - **Ansichten** für Strom, Straßenanbindung, Verschmutzung, Kriminalität, Bodenwert, Verkehr und die Reichweite der Dienste.
 
 ![Nahaufnahme: Wohntürme, Polizei, Feuerwehr, Schule und Solarpark](docs/screenshot-nah.jpg)
+
+## Sprache
+
+Heliotown gibt es auf **Deutsch** und **Englisch**. Beim ersten Start richtet sich die Sprache nach der Browser-Einstellung. Umschalten kannst du jederzeit im **Hauptmenü (☰)** oder in den **Einstellungen**, auch mitten im Spiel. Die Wahl wird gespeichert.
 
 ## Ansicht
 
@@ -53,7 +57,7 @@ Tipps: Industrie verschmutzt, also Abstand zu Wohngebieten halten. Wasser, Parks
 | `V` | 3D- / 2D-Ansicht |
 | `Z` / `X` | Ansicht drehen |
 | `Q` `B` `R` `L` | Info, Abriss, Straße, Stromleitung |
-| `W` `G` `I` | Wohn-, Gewerbe-, Industriezone |
+| `W` `G` `I` | Wohn-, Gewerbe-, Industriezone (gleiche Tasten auch in der englischen Version) |
 | `Esc` | Aktion abbrechen |
 | `Strg` + `S` | Schnellspeichern |
 
@@ -72,6 +76,7 @@ Heliotown/
 ├── css/style.css     Oberfläche
 ├── js/
 │   ├── data.js       Konstanten, Gebäude, Werkzeuge, Hilfsfunktionen
+│   ├── i18n.js       Übersetzungen (Deutsch, Englisch)
 │   ├── state.js      Spielstand, Kartengenerator, Bauaktionen, Speichern/Laden
 │   ├── sim.js        Simulation (Strom, Wachstum, Umwelt, Haushalt, Ereignisse)
 │   ├── render.js     2D-Draufsicht und Minikarte

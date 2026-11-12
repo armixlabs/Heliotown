@@ -371,7 +371,7 @@
         if (s.kind[i] !== K.ZONE || s.lvl[i] === 0) continue;
         const chance = 0.12 * (1 - s.cov.fire[i]) * (s.zone[i] === 3 ? 1.8 : 1);
         if (Math.random() < chance && Sim.ignite(s, i)) {
-          SC.notify(s, 'Feuer ausgebrochen bei (' + (i % s.W) + ', ' + ((i / s.W) | 0) + ')!', 'bad');
+          SC.notify(s, 'msg.fire', { x: String(i % s.W), y: String((i / s.W) | 0) }, 'bad');
           SC.emit('fire', i);
         }
         break;
@@ -395,44 +395,44 @@
 
   function milestones(s, prevPop) {
     const pop = s.stats.pop;
-    for (const [p, n] of SC.CITY_CLASSES) {
+    SC.CITY_CLASSES.forEach((p, idx) => {
       if (p > 0 && pop >= p && !s.flags['class_' + p]) {
         s.flags['class_' + p] = true;
-        SC.notify(s, s.name + ' ist jetzt ' + (n === 'Dorf' ? 'ein ' : 'eine ') + n + '! (' + SC.fmtNum(p) + ' Einwohner)', 'good');
-        SC.emit('milestone', n);
+        SC.notify(s, 'msg.class', { city: s.name, clsA: '@classA.' + idx, n: p }, 'good');
+        SC.emit('milestone', idx);
       }
-    }
+    });
     for (const bt of SC.BTYPES) {
       if (bt && bt.minPop && pop >= bt.minPop && !s.flags['unlock_' + bt.key]) {
         s.flags['unlock_' + bt.key] = true;
-        SC.notify(s, 'Neu freigeschaltet: ' + bt.name + '!', 'good');
+        SC.notify(s, 'msg.unlock', { b: '@b.' + bt.key }, 'good');
         SC.emit('unlock', bt);
       }
     }
   }
 
-  function advise(s, key, months, msg, type) {
+  function advise(s, key, months, type, params) {
     const now = s.year * 12 + s.month;
     if (s.advisor[key] != null && now - s.advisor[key] < months) return;
     s.advisor[key] = now;
-    SC.notify(s, msg, type || 'warn');
+    SC.notify(s, 'adv.' + key, params, type || 'warn');
   }
 
   function advisor(s) {
     const st = s.stats, totalZones = st.zones[1] + st.zones[2] + st.zones[3];
     const hasType = key => s.buildings.some(b => SC.BTYPES[b.t].key === key);
-    if (s.money < 0) advise(s, 'money', 3, 'Die Stadtkasse ist leer! Erhöhe die Steuern oder senke die Ausgaben.', 'bad');
-    if (totalZones > 0 && s.power.capacity === 0) advise(s, 'nopower', 4, 'Deine Zonen haben keinen Strom. Baue ein Kraftwerk und verbinde es per Stromleitung.');
-    else if (s.power.demand > s.power.capacity) advise(s, 'powerlow', 4, 'Stromknappheit! Der Bedarf übersteigt die Kraftwerksleistung.', 'bad');
-    else if (st.unpowered > 0) advise(s, 'powerconn', 6, 'Einige Zonen sind nicht ans Stromnetz angeschlossen.');
-    if (st.noRoad > 4) advise(s, 'road', 6, 'Manche Zonen sind zu weit von einer Straße entfernt (max. 3 Felder).');
-    if (s.demand.r > 0.5 && st.free[1] < 4 && totalZones > 0) advise(s, 'needR', 6, 'Die Menschen wollen nach ' + s.name + ' ziehen – weise mehr Wohnzonen aus!', 'info');
-    if (s.demand.c > 0.5 && st.free[2] < 3 && st.pop > 50) advise(s, 'needC', 6, 'Händler suchen Platz – weise mehr Gewerbezonen aus!', 'info');
-    if (s.demand.i > 0.5 && st.free[3] < 3 && st.pop > 50) advise(s, 'needI', 6, 'Die Industrie möchte expandieren – weise mehr Industriezonen aus!', 'info');
-    if (st.pop > 600 && st.avgCrime > 25) advise(s, 'crime', 8, 'Die Kriminalität steigt. Baue Polizeiwachen in dicht besiedelten Gebieten.');
-    if (st.pop > 600 && st.avgPol > 60) advise(s, 'pollution', 8, 'Bürger klagen über Luftverschmutzung. Trenne Wohnen und Industrie, baue Parks oder setze auf Solarstrom.');
-    if (st.pop > 1200 && !hasType('fire')) advise(s, 'fire', 10, 'Ohne Feuerwehr können sich Brände ungehindert ausbreiten.');
-    if (st.pop > 2500 && !hasType('school')) advise(s, 'school', 12, 'Familien wünschen sich Schulen.', 'info');
-    if (st.pop > 4000 && !hasType('hospital')) advise(s, 'hospital', 12, 'Die Bevölkerung braucht ein Krankenhaus.', 'info');
+    if (s.money < 0) advise(s, 'money', 3, 'bad');
+    if (totalZones > 0 && s.power.capacity === 0) advise(s, 'nopower', 4);
+    else if (s.power.demand > s.power.capacity) advise(s, 'powerlow', 4, 'bad');
+    else if (st.unpowered > 0) advise(s, 'powerconn', 6);
+    if (st.noRoad > 4) advise(s, 'road', 6);
+    if (s.demand.r > 0.5 && st.free[1] < 4 && totalZones > 0) advise(s, 'needR', 6, 'info', { city: s.name });
+    if (s.demand.c > 0.5 && st.free[2] < 3 && st.pop > 50) advise(s, 'needC', 6, 'info');
+    if (s.demand.i > 0.5 && st.free[3] < 3 && st.pop > 50) advise(s, 'needI', 6, 'info');
+    if (st.pop > 600 && st.avgCrime > 25) advise(s, 'crime', 8);
+    if (st.pop > 600 && st.avgPol > 60) advise(s, 'pollution', 8);
+    if (st.pop > 1200 && !hasType('fire')) advise(s, 'fire', 10);
+    if (st.pop > 2500 && !hasType('school')) advise(s, 'school', 12, 'info');
+    if (st.pop > 4000 && !hasType('hospital')) advise(s, 'hospital', 12, 'info');
   }
 })(window.SC);
